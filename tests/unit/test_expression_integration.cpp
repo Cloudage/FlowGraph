@@ -10,20 +10,20 @@ TEST_CASE("ExpressionKit integration - Basic evaluation", "[expression][integrat
         
         // Test basic arithmetic - ExpressionKit returns all numbers as double
         auto result1 = context.evaluateExpression("2 + 3");
-        REQUIRE(result1.type() == ValueType::Float);
-        REQUIRE(result1.get<double>() == 5.0);
+        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(result1.asNumber() == 5.0);
         
         auto result2 = context.evaluateExpression("10 - 4");
-        REQUIRE(result2.type() == ValueType::Float);
-        REQUIRE(result2.get<double>() == 6.0);
+        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(result2.asNumber() == 6.0);
         
         auto result3 = context.evaluateExpression("3 * 4");
-        REQUIRE(result3.type() == ValueType::Float);
-        REQUIRE(result3.get<double>() == 12.0);
+        REQUIRE(getValueType(result3) == ValueType::Float);
+        REQUIRE(result3.asNumber() == 12.0);
         
         auto result4 = context.evaluateExpression("15.0 / 3.0");
-        REQUIRE(result4.type() == ValueType::Float);
-        REQUIRE(result4.get<double>() == 5.0);
+        REQUIRE(getValueType(result4) == ValueType::Float);
+        REQUIRE(result4.asNumber() == 5.0);
     }
     
     SECTION("Boolean expressions") {
@@ -31,16 +31,16 @@ TEST_CASE("ExpressionKit integration - Basic evaluation", "[expression][integrat
         ExecutionContext context(ast);
         
         auto result1 = context.evaluateExpression("true && false");
-        REQUIRE(result1.type() == ValueType::Boolean);
-        REQUIRE(result1.get<bool>() == false);
+        REQUIRE(getValueType(result1) == ValueType::Boolean);
+        REQUIRE(result1.asBoolean() == false);
         
         auto result2 = context.evaluateExpression("true || false");
-        REQUIRE(result2.type() == ValueType::Boolean);
-        REQUIRE(result2.get<bool>() == true);
+        REQUIRE(getValueType(result2) == ValueType::Boolean);
+        REQUIRE(result2.asBoolean() == true);
         
         auto result3 = context.evaluateExpression("!true");
-        REQUIRE(result3.type() == ValueType::Boolean);
-        REQUIRE(result3.get<bool>() == false);
+        REQUIRE(getValueType(result3) == ValueType::Boolean);
+        REQUIRE(result3.asBoolean() == false);
     }
     
     SECTION("Comparison expressions") {
@@ -48,16 +48,16 @@ TEST_CASE("ExpressionKit integration - Basic evaluation", "[expression][integrat
         ExecutionContext context(ast);
         
         auto result1 = context.evaluateExpression("5 > 3");
-        REQUIRE(result1.type() == ValueType::Boolean);
-        REQUIRE(result1.get<bool>() == true);
+        REQUIRE(getValueType(result1) == ValueType::Boolean);
+        REQUIRE(result1.asBoolean() == true);
         
         auto result2 = context.evaluateExpression("10 == 10");
-        REQUIRE(result2.type() == ValueType::Boolean);
-        REQUIRE(result2.get<bool>() == true);
+        REQUIRE(getValueType(result2) == ValueType::Boolean);
+        REQUIRE(result2.asBoolean() == true);
         
         auto result3 = context.evaluateExpression("7 <= 7");
-        REQUIRE(result3.type() == ValueType::Boolean);
-        REQUIRE(result3.get<bool>() == true);
+        REQUIRE(getValueType(result3) == ValueType::Boolean);
+        REQUIRE(result3.asBoolean() == true);
     }
 }
 
@@ -67,35 +67,35 @@ TEST_CASE("ExpressionKit integration - Variable access", "[expression][integrati
         ExecutionContext context(ast);
         
         // Set some variables
-        context.setVariable("x", Value(static_cast<int64_t>(10)));
-        context.setVariable("y", Value(5.5));
-        context.setVariable("flag", Value(true));
+        context.setVariable("x", createValue(static_cast<int64_t>(10)));
+        context.setVariable("y", createValue(5.5));
+        context.setVariable("flag", createValue(true));
         
         // Test variable access in expressions - ExpressionKit returns numbers as double
         auto result1 = context.evaluateExpression("x + 5");
-        REQUIRE(result1.type() == ValueType::Float);
-        REQUIRE(result1.get<double>() == 15.0);
+        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(result1.asNumber() == 15.0);
         
         auto result2 = context.evaluateExpression("y * 2");
-        REQUIRE(result2.type() == ValueType::Float);
-        REQUIRE(result2.get<double>() == 11.0);
+        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(result2.asNumber() == 11.0);
         
         auto result3 = context.evaluateExpression("flag && true");
-        REQUIRE(result3.type() == ValueType::Boolean);
-        REQUIRE(result3.get<bool>() == true);
+        REQUIRE(getValueType(result3) == ValueType::Boolean);
+        REQUIRE(result3.asBoolean() == true);
     }
     
     SECTION("Variable in complex expressions") {
         FlowAST ast;
         ExecutionContext context(ast);
         
-        context.setVariable("a", Value(static_cast<int64_t>(10)));
-        context.setVariable("b", Value(static_cast<int64_t>(20)));
-        context.setVariable("c", Value(static_cast<int64_t>(3)));
+        context.setVariable("a", createValue(static_cast<int64_t>(10)));
+        context.setVariable("b", createValue(static_cast<int64_t>(20)));
+        context.setVariable("c", createValue(static_cast<int64_t>(3)));
         
         auto result = context.evaluateExpression("(a + b) / c");
-        REQUIRE(result.type() == ValueType::Float);
-        REQUIRE(result.get<double>() == 10.0);
+        REQUIRE(getValueType(result) == ValueType::Float);
+        REQUIRE(result.asNumber() == 10.0);
     }
 }
 
@@ -106,38 +106,38 @@ TEST_CASE("ExpressionKit integration - Mathematical functions", "[expression][in
         
         // Test min/max functions
         auto result1 = context.evaluateExpression("max(10, 5)");
-        REQUIRE(result1.type() == ValueType::Float);
-        REQUIRE(result1.get<double>() == 10.0);
+        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(result1.asNumber() == 10.0);
         
         auto result2 = context.evaluateExpression("min(3.5, 7.2)");
-        REQUIRE(result2.type() == ValueType::Float);
-        REQUIRE(result2.get<double>() == 3.5);
+        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(result2.asNumber() == 3.5);
         
         // Test sqrt function
         auto result3 = context.evaluateExpression("sqrt(16)");
-        REQUIRE(result3.type() == ValueType::Float);
-        REQUIRE(result3.get<double>() == 4.0);
+        REQUIRE(getValueType(result3) == ValueType::Float);
+        REQUIRE(result3.asNumber() == 4.0);
         
         // Test abs function
         auto result4 = context.evaluateExpression("abs(-5)");
-        REQUIRE(result4.type() == ValueType::Float);
-        REQUIRE(result4.get<double>() == 5.0);
+        REQUIRE(getValueType(result4) == ValueType::Float);
+        REQUIRE(result4.asNumber() == 5.0);
     }
     
     SECTION("Functions with variables") {
         FlowAST ast;
         ExecutionContext context(ast);
         
-        context.setVariable("num", Value(static_cast<int64_t>(25)));
-        context.setVariable("neg", Value(static_cast<int64_t>(-10)));
+        context.setVariable("num", createValue(static_cast<int64_t>(25)));
+        context.setVariable("neg", createValue(static_cast<int64_t>(-10)));
         
         auto result1 = context.evaluateExpression("sqrt(num)");
-        REQUIRE(result1.type() == ValueType::Float);
-        REQUIRE(result1.get<double>() == 5.0);
+        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(result1.asNumber() == 5.0);
         
         auto result2 = context.evaluateExpression("abs(neg)");
-        REQUIRE(result2.type() == ValueType::Float);
-        REQUIRE(result2.get<double>() == 10.0);
+        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(result2.asNumber() == 10.0);
     }
 }
 
@@ -147,8 +147,8 @@ TEST_CASE("ExpressionKit integration - String operations", "[expression][integra
         ExecutionContext context(ast);
         
         auto result = context.evaluateExpression("\"Hello, \" + \"World!\"");
-        REQUIRE(result.type() == ValueType::String);
-        REQUIRE(result.get<std::string>() == "Hello, World!");
+        REQUIRE(getValueType(result) == ValueType::String);
+        REQUIRE(result.asString() == "Hello, World!");
     }
     
     SECTION("String comparison") {
@@ -156,24 +156,24 @@ TEST_CASE("ExpressionKit integration - String operations", "[expression][integra
         ExecutionContext context(ast);
         
         auto result1 = context.evaluateExpression("\"test\" == \"test\"");
-        REQUIRE(result1.type() == ValueType::Boolean);
-        REQUIRE(result1.get<bool>() == true);
+        REQUIRE(getValueType(result1) == ValueType::Boolean);
+        REQUIRE(result1.asBoolean() == true);
         
         auto result2 = context.evaluateExpression("\"abc\" != \"def\"");
-        REQUIRE(result2.type() == ValueType::Boolean);
-        REQUIRE(result2.get<bool>() == true);
+        REQUIRE(getValueType(result2) == ValueType::Boolean);
+        REQUIRE(result2.asBoolean() == true);
     }
     
     SECTION("String variables") {
         FlowAST ast;
         ExecutionContext context(ast);
         
-        context.setVariable("greeting", Value("Hello"));
-        context.setVariable("name", Value("FlowGraph"));
+        context.setVariable("greeting", createValue("Hello"));
+        context.setVariable("name", createValue("FlowGraph"));
         
         auto result = context.evaluateExpression("greeting + \", \" + name + \"!\"");
-        REQUIRE(result.type() == ValueType::String);
-        REQUIRE(result.get<std::string>() == "Hello, FlowGraph!");
+        REQUIRE(getValueType(result) == ValueType::String);
+        REQUIRE(result.asString() == "Hello, FlowGraph!");
     }
 }
 
@@ -183,22 +183,22 @@ TEST_CASE("ExpressionKit integration - AST node execution", "[expression][integr
         ExecutionContext context(ast);
         
         // Test that we can evaluate expressions that would be used in AST nodes
-        context.setVariable("count", Value(static_cast<int64_t>(5)));
+        context.setVariable("count", createValue(static_cast<int64_t>(5)));
         
         // Test an assignment-like expression
         auto result1 = context.evaluateExpression("count + 10");
-        REQUIRE(result1.type() == ValueType::Float);
-        REQUIRE(result1.get<double>() == 15.0);
+        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(result1.asNumber() == 15.0);
         
         // Test a condition-like expression
         auto result2 = context.evaluateExpression("count < 10");
-        REQUIRE(result2.type() == ValueType::Boolean);
-        REQUIRE(result2.get<bool>() == true);
+        REQUIRE(getValueType(result2) == ValueType::Boolean);
+        REQUIRE(result2.asBoolean() == true);
         
         // Test complex expressions
         auto result3 = context.evaluateExpression("(count * 2) > 8");
-        REQUIRE(result3.type() == ValueType::Boolean);
-        REQUIRE(result3.get<bool>() == true);
+        REQUIRE(getValueType(result3) == ValueType::Boolean);
+        REQUIRE(result3.asBoolean() == true);
     }
     
     SECTION("Flow execution with basic AST") {
@@ -247,52 +247,31 @@ TEST_CASE("ExpressionKit integration - Error handling", "[expression][integratio
     }
 }
 
-TEST_CASE("ExpressionKit integration - Type conversion", "[expression][integration][types]") {
-    SECTION("FlowGraph Value to ExpressionKit Value conversion") {
-        Value intVal(static_cast<int64_t>(42));
-        Value floatVal(3.14);
-        Value boolVal(true);
-        Value stringVal("test");
+TEST_CASE("ExpressionKit integration - Direct Value usage", "[expression][integration][types]") {
+    SECTION("Using ExpressionKit::Value directly as FlowGraph::Value") {
+        // Test that FlowGraph::Value is now ExpressionKit::Value
+        Value intVal = createValue(42.0);
+        Value floatVal = createValue(3.14);
+        Value boolVal = createValue(true);
+        Value stringVal = createValue("test");
         
-        auto ekInt = toExpressionKitValue(intVal);
-        auto ekFloat = toExpressionKitValue(floatVal);
-        auto ekBool = toExpressionKitValue(boolVal);
-        auto ekString = toExpressionKitValue(stringVal);
+        // Test that these values work directly with ExpressionKit methods
+        REQUIRE(intVal.isNumber());
+        REQUIRE(intVal.asNumber() == 42.0);
         
-        REQUIRE(ekInt.isNumber());
-        REQUIRE(ekInt.asNumber() == 42.0);
+        REQUIRE(floatVal.isNumber());
+        REQUIRE(floatVal.asNumber() == 3.14);
         
-        REQUIRE(ekFloat.isNumber());
-        REQUIRE(ekFloat.asNumber() == 3.14);
+        REQUIRE(boolVal.isBoolean());
+        REQUIRE(boolVal.asBoolean() == true);
         
-        REQUIRE(ekBool.isBoolean());
-        REQUIRE(ekBool.asBoolean() == true);
+        REQUIRE(stringVal.isString());
+        REQUIRE(stringVal.asString() == "test");
         
-        REQUIRE(ekString.isString());
-        REQUIRE(ekString.asString() == "test");
-    }
-    
-    SECTION("ExpressionKit Value to FlowGraph Value conversion") {
-        ExpressionKit::Value ekInt(42.0);
-        ExpressionKit::Value ekFloat(3.14);
-        ExpressionKit::Value ekBool(true);
-        ExpressionKit::Value ekString("test");
-        
-        auto fgInt = fromExpressionKitValue(ekInt);
-        auto fgFloat = fromExpressionKitValue(ekFloat);
-        auto fgBool = fromExpressionKitValue(ekBool);
-        auto fgString = fromExpressionKitValue(ekString);
-        
-        REQUIRE(fgInt.type() == ValueType::Float);
-        REQUIRE(fgInt.get<double>() == 42.0);
-        
-        REQUIRE(fgFloat.type() == ValueType::Float);
-        REQUIRE(fgFloat.get<double>() == 3.14);
-        
-        REQUIRE(fgBool.type() == ValueType::Boolean);
-        REQUIRE(fgBool.get<bool>() == true);
-        
-        REQUIRE(fgString.type() == ValueType::String);
-        REQUIRE(fgString.get<std::string>() == "test");
+        // Test that getValueType helper works
+        REQUIRE(getValueType(intVal) == ValueType::Float);
+        REQUIRE(getValueType(floatVal) == ValueType::Float);
+        REQUIRE(getValueType(boolVal) == ValueType::Boolean);
+        REQUIRE(getValueType(stringVal) == ValueType::String);
     }
 }

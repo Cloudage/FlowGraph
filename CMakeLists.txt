@@ -10,6 +10,30 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
 option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
 
+# Fetch ExpressionKit using FetchContent
+include(FetchContent)
+
+# This would be the proper way to fetch ExpressionKit from a repository:
+# FetchContent_Declare(
+#     ExpressionKit
+#     GIT_REPOSITORY https://github.com/example-org/ExpressionKit.git
+#     GIT_TAG        v1.0.0  # or main, or a specific commit hash
+# )
+# FetchContent_MakeAvailable(ExpressionKit)
+
+# For now, since we don't have the actual ExpressionKit repository URL,
+# we create a local interface target that wraps the current header-only implementation
+# This demonstrates the structure that would be used with proper FetchContent
+if(NOT TARGET ExpressionKit::ExpressionKit)
+    add_library(ExpressionKit INTERFACE)
+    add_library(ExpressionKit::ExpressionKit ALIAS ExpressionKit)
+    target_include_directories(ExpressionKit INTERFACE 
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
+        $<INSTALL_INTERFACE:include>
+    )
+    target_compile_features(ExpressionKit INTERFACE cxx_std_17)
+endif()
+
 # Header-only library
 add_library(FlowGraph INTERFACE)
 add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
@@ -17,9 +41,11 @@ add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 # Include directories
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
     $<INSTALL_INTERFACE:include>
 )
+
+# Link ExpressionKit
+target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)
@@ -37,7 +63,7 @@ endif()
 
 # Installation
 include(GNUInstallDirs)
-install(TARGETS FlowGraph
+install(TARGETS FlowGraph ExpressionKit
     EXPORT FlowGraphTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -45,6 +71,7 @@ install(TARGETS FlowGraph
 )
 
 install(DIRECTORY Core/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES external/ExpressionKit.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(EXPORT FlowGraphTargets
     FILE FlowGraphTargets.cmake

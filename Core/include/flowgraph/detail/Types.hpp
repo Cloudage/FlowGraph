@@ -1,65 +1,28 @@
 #pragma once
 
 #include <string>
-#include <variant>
 #include <unordered_map>
 #include <vector>
 #include <optional>
 #include <functional>
+#include "ExpressionKit.hpp"
 
 namespace FlowGraph {
 
 /**
- * @brief Basic data types supported by FlowGraph
+ * @brief Basic data types supported by FlowGraph - mapped to ExpressionKit types
  */
 enum class ValueType {
-    Integer,    // I
-    Float,      // F
-    Boolean,    // B
-    String      // S
+    Integer,    // I - mapped to ExpressionKit NUMBER but with integer semantics
+    Float,      // F - mapped to ExpressionKit NUMBER  
+    Boolean,    // B - mapped to ExpressionKit BOOLEAN
+    String      // S - mapped to ExpressionKit STRING
 };
 
 /**
- * @brief Runtime value that can hold any FlowGraph type
+ * @brief Runtime value using ExpressionKit::Value directly
  */
-class Value {
-public:
-    using Variant = std::variant<int64_t, double, bool, std::string>;
-    
-    Value() = default;
-    explicit Value(int64_t value) : data_(value) {}
-    explicit Value(double value) : data_(value) {}
-    explicit Value(bool value) : data_(value) {}
-    explicit Value(const std::string& value) : data_(value) {}
-    explicit Value(std::string&& value) : data_(std::move(value)) {}
-    explicit Value(const char* value) : data_(std::string(value)) {}
-    
-    ValueType type() const;
-    
-    template<typename T>
-    T get() const {
-        return std::get<T>(data_);
-    }
-    
-    template<typename T>
-    bool holds() const {
-        return std::holds_alternative<T>(data_);
-    }
-    
-    std::string toString() const;
-    bool toBool() const;
-    
-    // Comparison operators
-    bool operator==(const Value& other) const;
-    bool operator!=(const Value& other) const;
-    bool operator<(const Value& other) const;
-    bool operator<=(const Value& other) const;
-    bool operator>(const Value& other) const;
-    bool operator>=(const Value& other) const;
-    
-private:
-    Variant data_;
-};
+using Value = ExpressionKit::Value;
 
 /**
  * @brief Type information for compile-time checking
@@ -154,80 +117,53 @@ private:
 ValueType parseValueType(const std::string& typeStr);
 std::string valueTypeToString(ValueType type);
 
+// Helper functions to work with ExpressionKit::Value in FlowGraph context
+ValueType getValueType(const Value& value);
+Value createValue(int64_t value);  // For Integer type semantics
+Value createValue(double value);   // For Float type semantics
+Value createValue(bool value);     // For Boolean type semantics
+Value createValue(const std::string& value); // For String type semantics
+
 // Implementation (header-only)
 
-inline ValueType Value::type() const {
-    return std::visit([](const auto& value) {
-        using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, int64_t>) {
-            return ValueType::Integer;
-        } else if constexpr (std::is_same_v<T, double>) {
-            return ValueType::Float;
-        } else if constexpr (std::is_same_v<T, bool>) {
-            return ValueType::Boolean;
-        } else {
-            return ValueType::String;
-        }
-    }, data_);
-}
-
-inline std::string Value::toString() const {
-    return std::visit([](const auto& value) {
-        using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, std::string>) {
-            return value;
-        } else if constexpr (std::is_same_v<T, bool>) {
-            return value ? std::string("true") : std::string("false");
-        } else {
-            return std::to_string(value);
-        }
-    }, data_);
-}
-
-inline bool Value::toBool() const {
-    return std::visit([](const auto& value) {
-        using T = std::decay_t<decltype(value)>;
-        if constexpr (std::is_same_v<T, bool>) {
-            return value;
-        } else if constexpr (std::is_same_v<T, std::string>) {
-            return !value.empty();
-        } else if constexpr (std::is_same_v<T, int64_t>) {
-            return value != 0;
-        } else { // double
-            return value != 0.0;
-        }
-    }, data_);
-}
-
-inline bool Value::operator==(const Value& other) const {
-    return data_ == other.data_;
-}
-
-inline bool Value::operator!=(const Value& other) const {
-    return !(*this == other);
-}
-
-inline bool Value::operator<(const Value& other) const {
-    if (type() != other.type()) {
-        return false; // Different types are not comparable
+inline ValueType getValueType(const Value& value) {
+    if (value.isNumber()) {
+        // Note: ExpressionKit only has NUMBER type, but FlowGraph distinguishes Integer vs Float
+        // For now, we'll treat all numbers as Float to maintain compatibility
+        // In a more sophisticated implementation, we could store type hints
+        return ValueType::Float;
+    } else if (value.isBoolean()) {
+        return ValueType::Boolean;
+    } else if (value.isString()) {
+        return ValueType::String;
     }
-    return data_ < other.data_;
+    throw FlowGraphError(FlowGraphError::Type::Type, "Unknown ExpressionKit value type");
 }
 
-inline bool Value::operator<=(const Value& other) const {
-    return *this < other || *this == other;
+inline Value createValue(int64_t value) {
+    return Value(static_cast<double>(value)); // Convert to double for ExpressionKit
 }
 
-inline bool Value::operator>(const Value& other) const {
-    return !(*this <= other);
+inline Value createValue(double value) {
+    return Value(value);
 }
 
-inline bool Value::operator>=(const Value& other) const {
-    return !(*this < other);
+inline Value createValue(bool value) {
+    return Value(value);
+}
+
+inline Value createValue(const std::string& value) {
+    // Explicitly create from std::string to avoid const char* ambiguity
+    return ExpressionKit::Value(value);
+}
+
+// Add overload for const char* to be explicit
+inline Value createValue(const char* value) {
+    return ExpressionKit::Value(std::string(value));
 }
 
 inline bool TypeInfo::matches(const Value& value) const {
-    return value.type() == type;
+    return getValueType(value) == type;
 }
 
 inline std::string TypeInfo::toString() const {

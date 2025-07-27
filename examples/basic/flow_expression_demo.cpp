@@ -54,8 +54,8 @@ int main() {
         
         // Test with some parameters
         FlowGraph::ParameterMap params;
-        params["a"] = FlowGraph::Value(5.0);
-        params["b"] = FlowGraph::Value(3.0);
+        params["a"] = FlowGraph::createValue(5.0);
+        params["b"] = FlowGraph::createValue(3.0);
         
         std::cout << "Input parameters:\n";
         std::cout << "a = " << params["a"].toString() << std::endl;

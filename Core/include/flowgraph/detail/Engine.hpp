@@ -14,37 +14,6 @@
 namespace FlowGraph {
 
 /**
- * @brief Convert FlowGraph Value to ExpressionKit Value
- */
-inline ExpressionKit::Value toExpressionKitValue(const Value& value) {
-    switch (value.type()) {
-        case ValueType::Integer:
-            return ExpressionKit::Value(static_cast<double>(value.get<int64_t>()));
-        case ValueType::Float:
-            return ExpressionKit::Value(value.get<double>());
-        case ValueType::Boolean:
-            return ExpressionKit::Value(value.get<bool>());
-        case ValueType::String:
-            return ExpressionKit::Value(value.get<std::string>());
-    }
-    throw FlowGraphError(FlowGraphError::Type::Type, "Unsupported value type conversion");
-}
-
-/**
- * @brief Convert ExpressionKit Value to FlowGraph Value
- */
-inline Value fromExpressionKitValue(const ExpressionKit::Value& value) {
-    if (value.isNumber()) {
-        return Value(value.asNumber());
-    } else if (value.isBoolean()) {
-        return Value(value.asBoolean());
-    } else if (value.isString()) {
-        return Value(value.asString());
-    }
-    throw FlowGraphError(FlowGraphError::Type::Type, "Unsupported ExpressionKit value type conversion");
-}
-
-/**
  * @brief ExpressionKit Environment adapter for FlowGraph ExecutionContext
  */
 class ExpressionEnvironment : public ExpressionKit::IEnvironment {
@@ -56,7 +25,7 @@ public:
         if (it == variables_.end()) {
             throw ExpressionKit::ExprException("Variable not found: " + name);
         }
-        return toExpressionKitValue(it->second);
+        return it->second; // Direct return since Value is now ExpressionKit::Value
     }
     
     ExpressionKit::Value Call(const std::string& name, const std::vector<ExpressionKit::Value>& args) override {
@@ -161,7 +130,7 @@ public:
     Value evaluateExpression(const std::string& expression) {
         try {
             auto result = ExpressionKit::Expression::Eval(expression, expressionEnv_.get());
-            return fromExpressionKitValue(result);
+            return result; // Direct return since Value is now ExpressionKit::Value
         } catch (const ExpressionKit::ExprException& e) {
             throw FlowGraphError(FlowGraphError::Type::Runtime, "Expression evaluation error: " + std::string(e.what()));
         }
@@ -382,7 +351,7 @@ private:
     std::string executeCondNode(const CondNode& node, ExecutionContext& context) {
         // Use ExpressionKit to evaluate the condition
         Value result = context.evaluateExpression(node.condition);
-        bool condition = result.toBool();
+        bool condition = result.asBoolean(); // Use ExpressionKit's asBoolean method
         
         // Find connections based on condition result
         auto connections = ast_->getConnectionsFrom(node.id);
