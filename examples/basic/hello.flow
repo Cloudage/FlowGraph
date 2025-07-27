@@ -1,0 +1,9 @@
+// Simple hello world flow
+TITLE: Hello World
+
+NODES:
+10 PROC print msg>>"Hello, FlowGraph!"
+
+FLOW:
+START -> 10
+10 -> END

@@ -1,0 +1,73 @@
+# Build directories
+build/
+out/
+.vs/
+.vscode/settings.json
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+
+# Package managers
+_deps/
+vcpkg_installed/
+
+# Test outputs
+Testing/
+*.gcov
+*.gcno
+*.gcda
+
+# Swift
+.DS_Store
+/.build
+/Packages
+xcuserdata/
+DerivedData/
+.swiftpm/configuration/registries.json
+.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
+.netrc
+
+# Temporary files
+*.tmp
+*.temp
+/tmp/
