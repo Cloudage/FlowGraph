@@ -38,6 +38,3 @@ endif()
 # Register tests with CTest
 include(Catch)
 catch_discover_tests(FlowGraphTests)
-
-# Copy test data files
-file(COPY test_data DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
