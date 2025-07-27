@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Configure CMake
+      run: cmake -B build -DFLOWGRAPH_BUILD_TESTS=ON -DFLOWGRAPH_BUILD_EXAMPLES=ON
+      
+    - name: Build
+      run: cmake --build build --config Release
+      
+    - name: Test
+      run: ctest --test-dir build --output-on-failure
+      
+  swift-package:
+    runs-on: macos-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Build Swift Package
+      run: swift build
+      
+    - name: Test Swift Package
+      run: swift test

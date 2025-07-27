@@ -1,0 +1,11 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Find ExpressionKit dependency
+find_dependency(ExpressionKit)
+
+# Include the targets
+include("${CMAKE_CURRENT_LIST_DIR}/FlowGraphTargets.cmake")
+
+check_required_components(FlowGraph)
