@@ -25,13 +25,12 @@ let package = Package(
             publicHeadersPath: "include",
             cxxSettings: [
                 .define("FLOWGRAPH_SWIFT_PACKAGE"),
-                .headerSearchPath("../../../include"),
                 .unsafeFlags(["-std=c++17"])
             ]
         ),
         .target(
             name: "FlowGraph",
-            dependencies: ["CFlowGraph"],
+            dependencies: [],
             path: "Sources/FlowGraph"
         ),
         .testTarget(

@@ -1,53 +1,38 @@
-import CFlowGraph
 import Foundation
 
 /// Swift wrapper for FlowGraph engine
 public class FlowGraphEngine {
-    private let engine: OpaquePointer
     
     public init() {
-        engine = flowgraph_engine_create()
-    }
-    
-    deinit {
-        flowgraph_engine_destroy(engine)
+        // TODO: Initialize C++ engine when implementation is complete
     }
     
     /// Load a flow from a file
     public func loadFlow(from filepath: String) throws -> FlowGraphFlow {
-        guard let flow = flowgraph_load_flow(engine, filepath) else {
-            throw FlowGraphError.loadFailed("Failed to load flow from: \(filepath)")
-        }
-        return FlowGraphFlow(flow: flow)
+        // TODO: Implement when C++ core is complete
+        throw FlowGraphError.loadFailed("Not implemented yet")
     }
     
     /// Parse a flow from string content
     public func parseFlow(content: String, name: String = "") throws -> FlowGraphFlow {
-        guard let flow = flowgraph_parse_flow(engine, content, name) else {
-            throw FlowGraphError.parseFailed("Failed to parse flow content")
-        }
-        return FlowGraphFlow(flow: flow)
+        // TODO: Implement when C++ core is complete
+        throw FlowGraphError.parseFailed("Not implemented yet")
     }
 }
 
 /// Represents a loaded and ready-to-execute flow
 public class FlowGraphFlow {
-    private let flow: OpaquePointer
     
-    internal init(flow: OpaquePointer) {
-        self.flow = flow
-    }
-    
-    deinit {
-        flowgraph_flow_destroy(flow)
+    internal init() {
+        // TODO: Implement when C++ core is complete
     }
     
     /// Execute the flow
     public func execute() -> FlowGraphResult {
-        let result = flowgraph_execute_flow(flow)
+        // TODO: Implement when C++ core is complete
         return FlowGraphResult(
-            success: result.success,
-            error: result.error.map { String(cString: $0) }
+            success: false,
+            error: "Not implemented yet"
         )
     }
 }
