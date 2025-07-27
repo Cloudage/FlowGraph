@@ -20,8 +20,8 @@ int main() {
         
         // Test with variables
         std::cout << "\nTesting expressions with variables:\n";
-        context.setVariable("x", FlowGraph::Value(static_cast<int64_t>(10)));
-        context.setVariable("y", FlowGraph::Value(25.5));
+        context.setVariable("x", FlowGraph::createValue(static_cast<int64_t>(10)));
+        context.setVariable("y", FlowGraph::createValue(25.5));
         
         std::cout << "x = " << context.getVariable("x").toString() << std::endl;
         std::cout << "y = " << context.getVariable("y").toString() << std::endl;
@@ -36,8 +36,8 @@ int main() {
         
         // Test boolean expressions
         std::cout << "\nTesting boolean expressions:\n";
-        context.setVariable("active", FlowGraph::Value(true));
-        context.setVariable("ready", FlowGraph::Value(false));
+        context.setVariable("active", FlowGraph::createValue(true));
+        context.setVariable("ready", FlowGraph::createValue(false));
         
         std::cout << "active = " << context.getVariable("active").toString() << std::endl;
         std::cout << "ready = " << context.getVariable("ready").toString() << std::endl;
@@ -47,8 +47,8 @@ int main() {
         
         // Test string operations
         std::cout << "\nTesting string operations:\n";
-        context.setVariable("name", FlowGraph::Value("FlowGraph"));
-        context.setVariable("version", FlowGraph::Value("1.0"));
+        context.setVariable("name", FlowGraph::createValue("FlowGraph"));
+        context.setVariable("version", FlowGraph::createValue("1.0"));
         
         std::cout << "name = " << context.getVariable("name").toString() << std::endl;
         std::cout << "version = " << context.getVariable("version").toString() << std::endl;
