@@ -564,8 +564,13 @@ inline void Flow::executeProcNode(const ProcNode& node, ExecutionContext& contex
     // Create callback object as suggested in the comment
     ProcCompletionCallback procCallback;
     
-    // Call the injected function with params and callback
-    procedure(inputParams, procCallback);
+    // Call the injected function with params and callback, handling exceptions
+    try {
+        procedure(inputParams, procCallback);
+    } catch (const std::exception& e) {
+        // Convert exception to error result
+        procCallback(ProcResult::completedError(e.what()));
+    }
     
     // Check if callback was resolved immediately (synchronous case)
     if (procCallback.IsResolved()) {

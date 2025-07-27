@@ -252,6 +252,98 @@ int main() {
         std::this_thread::sleep_for(std::chrono::seconds(3));
     }
     
+    // Example 5: Exception handling in PROCs
+    std::cout << "\n=== Example 5: Exception Handling ===" << std::endl;
+    {
+        // This PROC demonstrates that exceptions are properly caught and converted to error results
+        auto faultyProc = [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
+            auto mode = params.find("mode");
+            if (mode == params.end()) {
+                callback(ProcResult::completedError("Mode parameter missing"));
+                return;
+            }
+            
+            std::string modeStr = mode->second.asString();
+            if (modeStr == "exception") {
+                // This PROC incorrectly throws an exception instead of using callback
+                throw std::runtime_error("Simulated unexpected exception in PROC");
+            } else if (modeStr == "error") {
+                // This is the correct way to handle errors
+                callback(ProcResult::completedError("Simulated controlled error"));
+                return;
+            }
+            
+            // Normal success case
+            ParameterMap result;
+            result["result"] = createValue("Success with mode: " + modeStr);
+            callback(ProcResult::completedSuccess(std::move(result)));
+        };
+        
+        engine.registerProcedure("faulty_proc", faultyProc);
+        auto faultyProcRef = engine.getProcedure("faulty_proc");
+        
+        // Test 1: Normal operation
+        std::cout << "Testing normal operation..." << std::endl;
+        ParameterMap normalParams;
+        normalParams["mode"] = createValue("normal");
+        
+        ProcCompletionCallback normalCallback;
+        normalCallback.SetAsyncCallback([](const ProcResult& result) {
+            if (result.success) {
+                std::cout << "Normal operation result: " << result.returnValues.at("result").asString() << std::endl;
+            } else {
+                std::cout << "Unexpected error: " << result.error << std::endl;
+            }
+        });
+        
+        // Simulate the fixed executeProcNode logic with exception handling
+        try {
+            faultyProcRef(normalParams, normalCallback);
+        } catch (const std::exception& e) {
+            normalCallback(ProcResult::completedError(e.what()));
+        }
+        
+        // Test 2: Controlled error
+        std::cout << "Testing controlled error handling..." << std::endl;
+        ParameterMap errorParams;
+        errorParams["mode"] = createValue("error");
+        
+        ProcCompletionCallback errorCallback;
+        errorCallback.SetAsyncCallback([](const ProcResult& result) {
+            if (result.success) {
+                std::cout << "Unexpected success: " << result.returnValues.begin()->second.asString() << std::endl;
+            } else {
+                std::cout << "Controlled error handled: " << result.error << std::endl;
+            }
+        });
+        
+        try {
+            faultyProcRef(errorParams, errorCallback);
+        } catch (const std::exception& e) {
+            errorCallback(ProcResult::completedError(e.what()));
+        }
+        
+        // Test 3: Exception handling
+        std::cout << "Testing exception handling..." << std::endl;
+        ParameterMap exceptionParams;
+        exceptionParams["mode"] = createValue("exception");
+        
+        ProcCompletionCallback exceptionCallback;
+        exceptionCallback.SetAsyncCallback([](const ProcResult& result) {
+            if (result.success) {
+                std::cout << "Unexpected success: " << result.returnValues.begin()->second.asString() << std::endl;
+            } else {
+                std::cout << "Exception converted to error: " << result.error << std::endl;
+            }
+        });
+        
+        try {
+            faultyProcRef(exceptionParams, exceptionCallback);
+        } catch (const std::exception& e) {
+            exceptionCallback(ProcResult::completedError(e.what()));
+        }
+    }
+    
     std::cout << "\n=== Demo completed ===" << std::endl;
     
     return 0;

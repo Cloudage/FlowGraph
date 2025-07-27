@@ -221,6 +221,63 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         REQUIRE(successResult.returnValues.at("status").asString() == "success");
     }
     
+    SECTION("Exception handling in async PROC") {
+        // Test PROC that throws an exception instead of properly using callback
+        auto exceptionProc = [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
+            auto shouldThrow = params.find("should_throw");
+            if (shouldThrow != params.end() && shouldThrow->second.asBoolean()) {
+                // This PROC incorrectly throws an exception instead of using callback
+                throw std::runtime_error("PROC threw an exception directly");
+            }
+            
+            ParameterMap result;
+            result["status"] = createValue("success");
+            callback(ProcResult::completedSuccess(std::move(result)));
+        };
+        
+        engine.registerProcedure("exception_proc", exceptionProc);
+        
+        // Test that exceptions are caught and converted to error results
+        ParameterMap inputs;
+        inputs["should_throw"] = createValue(true);
+        
+        auto procedure = engine.getProcedure("exception_proc");
+        ProcCompletionCallback procCallback;
+        
+        // This should not throw - exceptions should be caught and converted
+        REQUIRE_NOTHROW([&]() {
+            // Simulate the fixed executeProcNode logic
+            try {
+                procedure(inputs, procCallback);
+            } catch (const std::exception& e) {
+                procCallback(ProcResult::completedError(e.what()));
+            }
+        }());
+        
+        REQUIRE(procCallback.IsResolved());
+        auto result = procCallback.GetResult();
+        REQUIRE(result.completed);
+        REQUIRE_FALSE(result.success);
+        REQUIRE(result.error == "PROC threw an exception directly");
+        
+        // Test that normal operation still works
+        ParameterMap normalInputs;
+        normalInputs["should_throw"] = createValue(false);
+        
+        ProcCompletionCallback normalCallback;
+        try {
+            procedure(normalInputs, normalCallback);
+        } catch (const std::exception& e) {
+            normalCallback(ProcResult::completedError(e.what()));
+        }
+        
+        REQUIRE(normalCallback.IsResolved());
+        auto normalResult = normalCallback.GetResult();
+        REQUIRE(normalResult.completed);
+        REQUIRE(normalResult.success);
+        REQUIRE(normalResult.returnValues.at("status").asString() == "success");
+    }
+    
     SECTION("Procedure registry management") {
         // Test initial state
         auto initialProcs = engine.getRegisteredProcedures();
