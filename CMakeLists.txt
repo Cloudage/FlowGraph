@@ -12,16 +12,18 @@ option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
 
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
-FetchContent_Declare(
-    ExpressionKit
-    # Note: This would normally point to the actual ExpressionKit repository
-    # For now, we'll create a minimal header-only target from the local file
-    # URL https://github.com/example/ExpressionKit.git
-    # GIT_TAG main
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/ExpressionKit
-)
 
-# For this transition, we'll create a minimal target that points to our current header
+# This would be the proper way to fetch ExpressionKit from a repository:
+# FetchContent_Declare(
+#     ExpressionKit
+#     GIT_REPOSITORY https://github.com/example-org/ExpressionKit.git
+#     GIT_TAG        v1.0.0  # or main, or a specific commit hash
+# )
+# FetchContent_MakeAvailable(ExpressionKit)
+
+# For now, since we don't have the actual ExpressionKit repository URL,
+# we create a local interface target that wraps the current header-only implementation
+# This demonstrates the structure that would be used with proper FetchContent
 if(NOT TARGET ExpressionKit::ExpressionKit)
     add_library(ExpressionKit INTERFACE)
     add_library(ExpressionKit::ExpressionKit ALIAS ExpressionKit)
@@ -29,6 +31,7 @@ if(NOT TARGET ExpressionKit::ExpressionKit)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
         $<INSTALL_INTERFACE:include>
     )
+    target_compile_features(ExpressionKit INTERFACE cxx_std_17)
 endif()
 
 # Header-only library
