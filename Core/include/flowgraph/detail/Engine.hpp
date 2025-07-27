@@ -370,14 +370,13 @@ public:
      */
     void registerLegacyProcedure(const std::string& name, LegacyExternalProcedure proc) {
         // Wrap legacy procedure in new async interface
-        auto asyncWrapper = [proc](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
-            (void)callback;  // Suppress unused parameter warning for sync execution
+        auto asyncWrapper = [proc](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
             try {
                 // Execute synchronously
                 ParameterMap result = proc(params);
-                return ProcResult::completedSuccess(std::move(result));
+                callback(ProcResult::completedSuccess(std::move(result)));
             } catch (const std::exception& e) {
-                return ProcResult::completedError(e.what());
+                callback(ProcResult::completedError(e.what()));
             }
         };
         
@@ -557,33 +556,33 @@ inline void Flow::executeProcNode(const ProcNode& node, ExecutionContext& contex
         }
     }
     
-    // Execute the PROC
+    // Execute the PROC with new callback pattern
     auto procedure = engine_->getProcedure(node.procedureName);
     
-    // Set up completion callback for async handling
-    bool asyncCompleted = false;
-    ProcResult finalResult;
-    
-    auto completionCallback = [&asyncCompleted, &finalResult](const ProcResult& result) {
-        finalResult = result;
-        asyncCompleted = true;
-    };
-    
-    // Execute the PROC
     context.setCurrentNode(node.id);
-    ProcResult result = procedure(inputParams, completionCallback);
     
-    if (result.completed) {
-        // Synchronous completion
+    // Create callback object as suggested in the comment
+    ProcCompletionCallback procCallback;
+    
+    // Call the injected function with params and callback
+    procedure(inputParams, procCallback);
+    
+    // Check if callback was resolved immediately (synchronous case)
+    if (procCallback.IsResolved()) {
+        // Synchronous completion - get result and continue
+        ProcResult result = procCallback.GetResult();
         handleProcResult(result, node, context);
     } else {
-        // Asynchronous execution - mark context as waiting
+        // Asynchronous execution - mark context as waiting (hang)
         context.setWaitingForAsync(node.procedureName);
-        // In a real async execution environment, the completion callback would be called later
-        // For this implementation, we'll simulate async behavior but actually wait
         
-        // TODO: In a real implementation, this would return here and resume later
-        // For now, we'll indicate that async execution is needed
+        // Set up async callback for when the result becomes available
+        procCallback.SetAsyncCallback([this, node, &context](const ProcResult& result) {
+            handleProcResult(result, node, context);
+        });
+        
+        // In a real async execution environment, execution would pause here
+        // For this implementation, we indicate that async execution is needed
     }
 }
 

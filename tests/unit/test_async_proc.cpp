@@ -10,15 +10,16 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
     
     SECTION("Synchronous PROC completes immediately") {
         // Register a synchronous PROC
-        auto syncProc = [](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
+        auto syncProc = [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
             auto input = params.find("input");
             if (input == params.end()) {
-                return ProcResult::completedError("Missing input parameter");
+                callback(ProcResult::completedError("Missing input parameter"));
+                return;
             }
             
             ParameterMap result;
             result["output"] = createValue(input->second.asString() + "_processed");
-            return ProcResult::completedSuccess(std::move(result));
+            callback(ProcResult::completedSuccess(std::move(result)));
         };
         
         engine.registerProcedure("sync_proc", syncProc);
@@ -27,32 +28,42 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         ParameterMap inputs;
         inputs["input"] = createValue("test");
         
-        bool callbackCalled = false;
+        bool asyncCallbackCalled = false;
         auto procedure = engine.getProcedure("sync_proc");
-        auto result = procedure(inputs, [&callbackCalled](const ProcResult& result) {
-            callbackCalled = true;
+        
+        ProcCompletionCallback procCallback;
+        procCallback.SetAsyncCallback([&asyncCallbackCalled](const ProcResult& result) {
+            asyncCallbackCalled = true;
         });
         
+        procedure(inputs, procCallback);
+        
+        REQUIRE(procCallback.IsResolved());
+        auto result = procCallback.GetResult();
         REQUIRE(result.completed);
         REQUIRE(result.success);
         REQUIRE(result.returnValues.at("output").asString() == "test_processed");
-        REQUIRE_FALSE(callbackCalled); // Callback should not be called for sync completion
+        REQUIRE(asyncCallbackCalled); // Async callback should be called even for sync completion
     }
     
     SECTION("Asynchronous PROC with callback") {
         // Register an asynchronous PROC
-        ProcCompletionCallback storedCallback;
+        std::function<void(const ProcResult&)> storedCallback;
         bool asyncStarted = false;
         
-        auto asyncProc = [&](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
+        auto asyncProc = [&](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
             auto input = params.find("delay");
             if (input == params.end()) {
-                return ProcResult::completedError("Missing delay parameter");
+                callback(ProcResult::completedError("Missing delay parameter"));
+                return;
             }
             
-            storedCallback = callback;
+            // Store a way to complete the callback later
+            storedCallback = [&callback](const ProcResult& result) {
+                callback(result);
+            };
             asyncStarted = true;
-            return ProcResult::pending();
+            // Don't call callback immediately - this makes it async
         };
         
         engine.registerProcedure("async_proc", asyncProc);
@@ -61,25 +72,30 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         ParameterMap inputs;
         inputs["delay"] = createValue(100.0);
         
-        bool callbackCalled = false;
+        bool asyncCallbackCalled = false;
         ProcResult callbackResult;
         
         auto procedure = engine.getProcedure("async_proc");
-        auto result = procedure(inputs, [&](const ProcResult& result) {
-            callbackCalled = true;
+        
+        ProcCompletionCallback procCallback;
+        procCallback.SetAsyncCallback([&](const ProcResult& result) {
+            asyncCallbackCalled = true;
             callbackResult = result;
         });
         
-        REQUIRE_FALSE(result.completed);
+        procedure(inputs, procCallback);
+        
+        REQUIRE_FALSE(procCallback.IsResolved());
         REQUIRE(asyncStarted);
-        REQUIRE_FALSE(callbackCalled);
+        REQUIRE_FALSE(asyncCallbackCalled);
         
         // Simulate async completion
         ParameterMap asyncResult;
         asyncResult["result"] = createValue("async_completed");
         storedCallback(ProcResult::completedSuccess(std::move(asyncResult)));
         
-        REQUIRE(callbackCalled);
+        REQUIRE(procCallback.IsResolved());
+        REQUIRE(asyncCallbackCalled);
         REQUIRE(callbackResult.completed);
         REQUIRE(callbackResult.success);
         REQUIRE(callbackResult.returnValues.at("result").asString() == "async_completed");
@@ -108,10 +124,12 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         inputs["b"] = createValue(3.0);
         
         auto procedure = engine.getProcedure("legacy_add");
-        auto result = procedure(inputs, [](const ProcResult& result) {
-            // Should not be called for legacy sync proc
-        });
         
+        ProcCompletionCallback procCallback;
+        procedure(inputs, procCallback);
+        
+        REQUIRE(procCallback.IsResolved());
+        auto result = procCallback.GetResult();
         REQUIRE(result.completed);
         REQUIRE(result.success);
         REQUIRE(result.returnValues.at("sum").asNumber() == 8.0);
@@ -127,15 +145,16 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
             ReturnValue("output", TypeInfo(ValueType::String), "Processed output")
         };
         def.errors = {"INVALID_INPUT"};
-        def.implementation = [](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
+        def.implementation = [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
             auto input = params.find("input");
             if (input == params.end()) {
-                return ProcResult::completedError("INVALID_INPUT");
+                callback(ProcResult::completedError("INVALID_INPUT"));
+                return;
             }
             
             ParameterMap result;
             result["output"] = createValue("processed_" + input->second.asString());
-            return ProcResult::completedSuccess(std::move(result));
+            callback(ProcResult::completedSuccess(std::move(result)));
         };
         
         engine.registerProcedure("test_proc", def);
@@ -147,23 +166,28 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         inputs["input"] = createValue("hello");
         
         auto procedure = engine.getProcedure("test_proc");
-        auto result = procedure(inputs, [](const ProcResult& result) {});
         
+        ProcCompletionCallback procCallback;
+        procedure(inputs, procCallback);
+        
+        REQUIRE(procCallback.IsResolved());
+        auto result = procCallback.GetResult();
         REQUIRE(result.completed);
         REQUIRE(result.success);
         REQUIRE(result.returnValues.at("output").asString() == "processed_hello");
     }
     
     SECTION("Error handling in async PROC") {
-        auto errorProc = [](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
+        auto errorProc = [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
             auto shouldError = params.find("should_error");
             if (shouldError != params.end() && shouldError->second.asBoolean()) {
-                return ProcResult::completedError("Test error condition");
+                callback(ProcResult::completedError("Test error condition"));
+                return;
             }
             
             ParameterMap result;
             result["status"] = createValue("success");
-            return ProcResult::completedSuccess(std::move(result));
+            callback(ProcResult::completedSuccess(std::move(result)));
         };
         
         engine.registerProcedure("error_test", errorProc);
@@ -173,8 +197,12 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         errorInputs["should_error"] = createValue(true);
         
         auto procedure = engine.getProcedure("error_test");
-        auto errorResult = procedure(errorInputs, [](const ProcResult& result) {});
         
+        ProcCompletionCallback errorCallback;
+        procedure(errorInputs, errorCallback);
+        
+        REQUIRE(errorCallback.IsResolved());
+        auto errorResult = errorCallback.GetResult();
         REQUIRE(errorResult.completed);
         REQUIRE_FALSE(errorResult.success);
         REQUIRE(errorResult.error == "Test error condition");
@@ -183,8 +211,11 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         ParameterMap successInputs;
         successInputs["should_error"] = createValue(false);
         
-        auto successResult = procedure(successInputs, [](const ProcResult& result) {});
+        ProcCompletionCallback successCallback;
+        procedure(successInputs, successCallback);
         
+        REQUIRE(successCallback.IsResolved());
+        auto successResult = successCallback.GetResult();
         REQUIRE(successResult.completed);
         REQUIRE(successResult.success);
         REQUIRE(successResult.returnValues.at("status").asString() == "success");
@@ -196,8 +227,8 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         REQUIRE(initialProcs.size() >= 2); // At least print and log built-ins
         
         // Add a procedure
-        engine.registerProcedure("test_registry", [](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
-            return ProcResult::completedSuccess({});
+        engine.registerProcedure("test_registry", [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
+            callback(ProcResult::completedSuccess({}));
         });
         
         REQUIRE(engine.hasProcedure("test_registry"));

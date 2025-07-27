@@ -93,19 +93,63 @@ struct ProcResult {
 };
 
 /**
- * @brief Callback function for async PROC completion
+ * @brief Callback object for async PROC completion that can track resolution status
  */
-using ProcCompletionCallback = std::function<void(const ProcResult&)>;
+class ProcCompletionCallback {
+public:
+    ProcCompletionCallback() = default;
+    
+    /**
+     * @brief Call the callback with a result
+     * @param result The PROC execution result
+     */
+    void operator()(const ProcResult& result) {
+        result_ = result;
+        resolved_ = true;
+        if (callback_) {
+            callback_(result);
+        }
+    }
+    
+    /**
+     * @brief Check if the callback has been resolved (called)
+     * @return true if the callback was called
+     */
+    bool IsResolved() const { return resolved_; }
+    
+    /**
+     * @brief Get the result (only valid if IsResolved() returns true)
+     * @return The PROC execution result
+     */
+    const ProcResult& GetResult() const { return result_; }
+    
+    /**
+     * @brief Set an optional async callback for when the result is available
+     * @param callback Function to call when result is available
+     */
+    void SetAsyncCallback(std::function<void(const ProcResult&)> callback) {
+        callback_ = callback;
+        if (resolved_ && callback_) {
+            callback_(result_);
+        }
+    }
+
+private:
+    bool resolved_ = false;
+    ProcResult result_;
+    std::function<void(const ProcResult&)> callback_;
+};
 
 /**
  * @brief Enhanced external procedure function signature supporting async operations
  * 
- * If the PROC can complete synchronously, it should return a completed ProcResult.
- * If the PROC needs to execute asynchronously, it should:
- * 1. Return ProcResult::pending()
- * 2. Later call the completion callback with the final result
+ * The PROC should call the completion callback either:
+ * 1. Immediately for synchronous operations
+ * 2. Later via async mechanism for asynchronous operations
+ * 
+ * The execution engine checks if the callback IsResolved() immediately after the call.
  */
-using ExternalProcedure = std::function<ProcResult(const ParameterMap&, ProcCompletionCallback)>;
+using ExternalProcedure = std::function<void(const ParameterMap&, ProcCompletionCallback&)>;
 
 /**
  * @brief PROC definition structure similar to flow file headers

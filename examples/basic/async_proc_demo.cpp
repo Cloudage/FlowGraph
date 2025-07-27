@@ -7,11 +7,12 @@
 using namespace FlowGraph;
 
 // Example 1: Synchronous PROC (completes immediately)
-ProcResult getUserInfo(const ParameterMap& params, ProcCompletionCallback callback) {
+void getUserInfo(const ParameterMap& params, ProcCompletionCallback& callback) {
     // This is a synchronous PROC - it completes immediately
     auto username_it = params.find("username");
     if (username_it == params.end()) {
-        return ProcResult::completedError("Username parameter missing");
+        callback(ProcResult::completedError("Username parameter missing"));
+        return;
     }
     
     std::string username = username_it->second.asString();
@@ -21,23 +22,24 @@ ProcResult getUserInfo(const ParameterMap& params, ProcCompletionCallback callba
     result["full_name"] = createValue("John Doe");
     result["email"] = createValue(username + "@example.com");
     
-    return ProcResult::completedSuccess(std::move(result));
+    callback(ProcResult::completedSuccess(std::move(result)));
 }
 
 // Example 2: Asynchronous PROC (simulates network call or UI interaction)
 std::function<void()> pendingAsyncCallback;
 
-ProcResult fetchWeatherData(const ParameterMap& params, ProcCompletionCallback callback) {
+void fetchWeatherData(const ParameterMap& params, ProcCompletionCallback& callback) {
     // This PROC simulates an async network call
     auto location_it = params.find("location");
     if (location_it == params.end()) {
-        return ProcResult::completedError("Location parameter missing");
+        callback(ProcResult::completedError("Location parameter missing"));
+        return;
     }
     
     std::string location = location_it->second.asString();
     
     // Store the callback for later completion
-    pendingAsyncCallback = [callback, location]() {
+    pendingAsyncCallback = [&callback, location]() {
         // Simulate getting weather data after some time
         ParameterMap result;
         result["temperature"] = createValue(25.5);
@@ -50,15 +52,15 @@ ProcResult fetchWeatherData(const ParameterMap& params, ProcCompletionCallback c
     
     std::cout << "Weather request initiated for: " << location << " (async)" << std::endl;
     
-    // Return pending to indicate async operation
-    return ProcResult::pending();
+    // Don't call callback immediately - this makes it async
 }
 
 // Example 3: Robotic arm control (long-running operation)
-ProcResult controlRoboticArm(const ParameterMap& params, ProcCompletionCallback callback) {
+void controlRoboticArm(const ParameterMap& params, ProcCompletionCallback& callback) {
     auto angle_it = params.find("angle");
     if (angle_it == params.end()) {
-        return ProcResult::completedError("Angle parameter missing");
+        callback(ProcResult::completedError("Angle parameter missing"));
+        return;
     }
     
     double angle = angle_it->second.asNumber();
@@ -66,7 +68,7 @@ ProcResult controlRoboticArm(const ParameterMap& params, ProcCompletionCallback 
     std::cout << "Starting robotic arm movement to " << angle << " degrees..." << std::endl;
     
     // Simulate the arm movement in a separate thread
-    std::thread([callback, angle]() {
+    std::thread([&callback, angle]() {
         // Simulate 2 seconds of movement
         std::this_thread::sleep_for(std::chrono::seconds(2));
         
@@ -79,7 +81,7 @@ ProcResult controlRoboticArm(const ParameterMap& params, ProcCompletionCallback 
         callback(ProcResult::completedSuccess(std::move(result)));
     }).detach();
     
-    return ProcResult::pending();
+    // Don't call callback immediately - the thread will call it later
 }
 
 // Example legacy synchronous PROC (for backward compatibility)
@@ -143,17 +145,26 @@ int main() {
     params1["username"] = createValue("john_doe");
     
     auto userInfoProc = engine.getProcedure("get_user_info");
-    auto result1 = userInfoProc(params1, [](const ProcResult& result) {
-        std::cout << "Async callback called (but shouldn't be for sync PROC)" << std::endl;
+    
+    ProcCompletionCallback procCallback1;
+    procCallback1.SetAsyncCallback([](const ProcResult& result) {
+        std::cout << "Async callback called (should be called even for sync PROC)" << std::endl;
     });
     
-    if (result1.completed && result1.success) {
-        std::cout << "User info retrieved successfully:" << std::endl;
-        for (const auto& [key, value] : result1.returnValues) {
-            std::cout << "  " << key << ": " << value.toString() << std::endl;
+    userInfoProc(params1, procCallback1);
+    
+    if (procCallback1.IsResolved()) {
+        auto result1 = procCallback1.GetResult();
+        if (result1.completed && result1.success) {
+            std::cout << "User info retrieved successfully:" << std::endl;
+            for (const auto& [key, value] : result1.returnValues) {
+                std::cout << "  " << key << ": " << value.toString() << std::endl;
+            }
+        } else {
+            std::cout << "Error: " << result1.error << std::endl;
         }
     } else {
-        std::cout << "Error: " << result1.error << std::endl;
+        std::cout << "Unexpected async behavior for sync PROC" << std::endl;
     }
     
     // Example 2: Test legacy synchronous PROC
@@ -164,14 +175,17 @@ int main() {
     params2["b"] = createValue(5.0);
     
     auto calcProc = engine.getProcedure("calculate");
-    auto result2 = calcProc(params2, [](const ProcResult& result) {
-        std::cout << "Async callback called (but shouldn't be for sync PROC)" << std::endl;
-    });
     
-    if (result2.completed && result2.success) {
-        std::cout << "Calculation completed:" << std::endl;
-        for (const auto& [key, value] : result2.returnValues) {
-            std::cout << "  " << key << ": " << value.toString() << std::endl;
+    ProcCompletionCallback procCallback2;
+    calcProc(params2, procCallback2);
+    
+    if (procCallback2.IsResolved()) {
+        auto result2 = procCallback2.GetResult();
+        if (result2.completed && result2.success) {
+            std::cout << "Calculation completed:" << std::endl;
+            for (const auto& [key, value] : result2.returnValues) {
+                std::cout << "  " << key << ": " << value.toString() << std::endl;
+            }
         }
     }
     
@@ -182,7 +196,9 @@ int main() {
     params3["location"] = createValue("New York");
     
     auto weatherProc = engine.getProcedure("fetch_weather");
-    auto result3 = weatherProc(params3, [](const ProcResult& result) {
+    
+    ProcCompletionCallback procCallback3;
+    procCallback3.SetAsyncCallback([](const ProcResult& result) {
         std::cout << "Weather data received asynchronously:" << std::endl;
         if (result.success) {
             for (const auto& [key, value] : result.returnValues) {
@@ -193,7 +209,9 @@ int main() {
         }
     });
     
-    if (!result3.completed) {
+    weatherProc(params3, procCallback3);
+    
+    if (!procCallback3.IsResolved()) {
         std::cout << "Weather request is pending..." << std::endl;
         
         // Simulate completion after some time
@@ -212,7 +230,9 @@ int main() {
     params4["angle"] = createValue(90.0);
     
     auto armProc = engine.getProcedure("control_arm");
-    auto result4 = armProc(params4, [](const ProcResult& result) {
+    
+    ProcCompletionCallback procCallback4;
+    procCallback4.SetAsyncCallback([](const ProcResult& result) {
         std::cout << "Robotic arm control completed asynchronously:" << std::endl;
         if (result.success) {
             for (const auto& [key, value] : result.returnValues) {
@@ -223,7 +243,9 @@ int main() {
         }
     });
     
-    if (!result4.completed) {
+    armProc(params4, procCallback4);
+    
+    if (!procCallback4.IsResolved()) {
         std::cout << "Robotic arm movement initiated..." << std::endl;
         
         // Wait for the async operation to complete
