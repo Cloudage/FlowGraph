@@ -68,6 +68,7 @@ TEST_CASE("Value boolean conversion", "[types][value]") {
         REQUIRE(createValue(0.0).asBoolean() == false);
         REQUIRE(createValue(1.0).asBoolean() == true);
         REQUIRE(createValue(-1.0).asBoolean() == true);
+        REQUIRE(createValue(0.1).asBoolean() == true);
         
         // Booleans: direct conversion
         REQUIRE(createValue(true).asBoolean() == true);
@@ -77,6 +78,58 @@ TEST_CASE("Value boolean conversion", "[types][value]") {
         REQUIRE(createValue("").asBoolean() == false);
         REQUIRE(createValue("hello").asBoolean() == true);
         REQUIRE(createValue(" ").asBoolean() == true); // whitespace is considered non-empty
+        REQUIRE(createValue("0").asBoolean() == true); // string "0" is non-empty, so true
+        REQUIRE(createValue("false").asBoolean() == true); // string "false" is non-empty, so true
+    }
+}
+
+TEST_CASE("Value edge cases and robustness", "[types][value]") {
+    SECTION("Number precision and special values") {
+        // Test very small and large numbers
+        Value tiny = createValue(1e-308);
+        Value huge = createValue(1e308);
+        REQUIRE(tiny.isNumber());
+        REQUIRE(huge.isNumber());
+        
+        // Test negative zero
+        Value negZero = createValue(-0.0);
+        REQUIRE(negZero.isNumber());
+        REQUIRE(negZero.asNumber() == 0.0);
+    }
+    
+    SECTION("String edge cases") {
+        // Test null character in string
+        Value nullCharString = createValue(std::string("hello\0world", 11));
+        REQUIRE(nullCharString.isString());
+        REQUIRE(nullCharString.asString().length() == 11);
+        
+        // Test very long string
+        std::string longString(10000, 'x');
+        Value longStringValue = createValue(longString);
+        REQUIRE(longStringValue.isString());
+        REQUIRE(longStringValue.asString().length() == 10000);
+    }
+    
+    SECTION("Type consistency checks") {
+        // Ensure TypeInfo matching works correctly for all types
+        TypeInfo numberType(ValueType::Number);
+        TypeInfo boolType(ValueType::Boolean);
+        TypeInfo stringType(ValueType::String);
+        
+        REQUIRE(numberType.matches(createValue(42.0)));
+        REQUIRE(numberType.matches(createValue(-3.14)));
+        REQUIRE_FALSE(numberType.matches(createValue(true)));
+        REQUIRE_FALSE(numberType.matches(createValue("text")));
+        
+        REQUIRE(boolType.matches(createValue(true)));
+        REQUIRE(boolType.matches(createValue(false)));
+        REQUIRE_FALSE(boolType.matches(createValue(1.0)));
+        REQUIRE_FALSE(boolType.matches(createValue("true")));
+        
+        REQUIRE(stringType.matches(createValue("hello")));
+        REQUIRE(stringType.matches(createValue("")));
+        REQUIRE_FALSE(stringType.matches(createValue(42.0)));
+        REQUIRE_FALSE(stringType.matches(createValue(false)));
     }
 }
 
@@ -127,6 +180,31 @@ TEST_CASE("Type string conversion", "[types][conversion]") {
     
     SECTION("Invalid type string throws") {
         REQUIRE_THROWS_AS(parseValueType("X"), FlowGraphError);
+        REQUIRE_THROWS_AS(parseValueType(""), FlowGraphError);
+        REQUIRE_THROWS_AS(parseValueType("i"), FlowGraphError); // lowercase should fail
+        REQUIRE_THROWS_AS(parseValueType("NUMBER"), FlowGraphError); // full name should fail
+    }
+    
+    SECTION("Edge cases for type conversion") {
+        // Test extreme numbers
+        Value largeNumber = createValue(1e308);
+        REQUIRE(getValueType(largeNumber) == ValueType::Number);
+        
+        Value smallNumber = createValue(-1e308);
+        REQUIRE(getValueType(smallNumber) == ValueType::Number);
+        
+        Value zero = createValue(0.0);
+        REQUIRE(getValueType(zero) == ValueType::Number);
+        
+        // Test empty string
+        Value emptyString = createValue("");
+        REQUIRE(getValueType(emptyString) == ValueType::String);
+        REQUIRE(emptyString.asString() == "");
+        
+        // Test string with special characters
+        Value specialString = createValue("Hello\nWorld\t🚀");
+        REQUIRE(getValueType(specialString) == ValueType::String);
+        REQUIRE(specialString.asString() == "Hello\nWorld\t🚀");
     }
 }
 
