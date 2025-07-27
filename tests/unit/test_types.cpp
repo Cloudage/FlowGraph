@@ -6,7 +6,7 @@ using namespace FlowGraph;
 TEST_CASE("Value construction and type checking", "[types][value]") {
     SECTION("Integer values") {
         Value intVal = createValue(static_cast<int64_t>(42));
-        REQUIRE(getValueType(intVal) == ValueType::Float); // Note: ExpressionKit treats all numbers as Float
+        REQUIRE(getValueType(intVal) == ValueType::Float); // Note: ExpressionKit intentionally treats all numbers as Float due to the unified number system
         REQUIRE(intVal.isNumber());
         REQUIRE(intVal.asNumber() == 42.0);
     }
