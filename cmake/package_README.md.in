@@ -1,0 +1,76 @@
+# FlowGraph v@PACKAGE_VERSION@ - Header-Only Package
+
+This package contains a complete, self-contained distribution of FlowGraph including all necessary dependencies.
+
+## What's Included
+
+- **FlowGraph Headers**: Complete FlowGraph library headers in `include/flowgraph/`
+- **ExpressionKit**: Bundled ExpressionKit dependency header
+- **Example**: Simple usage example in `example.cpp`
+
+## Quick Start
+
+### 1. Copy Headers to Your Project
+
+```bash
+cp -r include/ /path/to/your/project/
+```
+
+### 2. Include in Your Code
+
+```cpp
+#include "flowgraph/FlowGraph.hpp"
+
+int main() {
+    FlowGraph::FlowGraphEngine engine;
+    // Your FlowGraph code here
+    return 0;
+}
+```
+
+### 3. Compile (C++17 Required)
+
+```bash
+g++ -std=c++17 -I./include your_code.cpp -o your_app
+```
+
+## Integration Methods
+
+### Option 1: Manual Header Copy (This Package)
+Copy the `include/` directory to your project and include headers directly.
+
+### Option 2: CMake FetchContent
+```cmake
+include(FetchContent)
+FetchContent_Declare(
+    FlowGraph
+    GIT_REPOSITORY https://github.com/Cloudage/FlowGraph.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(FlowGraph)
+target_link_libraries(your_target PRIVATE FlowGraph::FlowGraph)
+```
+
+### Option 3: CMake find_package
+After installing FlowGraph system-wide:
+```cmake
+find_package(FlowGraph REQUIRED)
+target_link_libraries(your_target PRIVATE FlowGraph::FlowGraph)
+```
+
+## Requirements
+
+- C++17 compatible compiler
+- No additional runtime dependencies
+
+## Package Information
+
+- **Version**: @PACKAGE_VERSION@
+- **Repository**: https://github.com/Cloudage/FlowGraph
+- **License**: See LICENSE file in the main repository
+- **Documentation**: https://github.com/Cloudage/FlowGraph
+
+## Support
+
+For issues and questions, please visit:
+https://github.com/Cloudage/FlowGraph/issues

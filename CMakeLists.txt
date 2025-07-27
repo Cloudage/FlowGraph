@@ -13,22 +13,34 @@ option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
 
-# This would be the proper way to fetch ExpressionKit from a repository:
+# Note: The upstream ExpressionKit repository has some issues:
+# 1. Missing inline keyword causing multiple definition errors
+# 2. Chinese error messages instead of English
+# For now, we use a local copy but maintain FetchContent infrastructure
+# for when these issues are resolved upstream.
+
 # FetchContent_Declare(
 #     ExpressionKit
-#     GIT_REPOSITORY https://github.com/example-org/ExpressionKit.git
-#     GIT_TAG        v1.0.0  # or main, or a specific commit hash
+#     GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit.git
+#     GIT_TAG        main
 # )
-# FetchContent_MakeAvailable(ExpressionKit)
+# 
+# # Fetch ExpressionKit without making it available (we'll configure it ourselves)
+# FetchContent_GetProperties(ExpressionKit)
+# if(NOT expressionkit_POPULATED)
+#     FetchContent_Populate(ExpressionKit)
+#     set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
+# endif()
 
-# For now, since we don't have the actual ExpressionKit repository URL,
-# we create a local interface target that wraps the current header-only implementation
-# This demonstrates the structure that would be used with proper FetchContent
+# For now, use local ExpressionKit.hpp until upstream issues are resolved
+set(EXPRESSIONKIT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+# Create ExpressionKit interface target
 if(NOT TARGET ExpressionKit::ExpressionKit)
     add_library(ExpressionKit INTERFACE)
     add_library(ExpressionKit::ExpressionKit ALIAS ExpressionKit)
     target_include_directories(ExpressionKit INTERFACE 
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
+        $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
     )
     target_compile_features(ExpressionKit INTERFACE cxx_std_17)
@@ -41,11 +53,12 @@ add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 # Include directories
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
+    $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
-# Link ExpressionKit
-target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
+# Don't link to ExpressionKit target since we're bundling the header
+# target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)
@@ -61,9 +74,27 @@ if(FLOWGRAPH_BUILD_EXAMPLES)
     add_subdirectory(examples)
 endif()
 
+# Package generation target
+add_custom_target(create_package
+    COMMAND ${CMAKE_COMMAND} 
+        -DEXPRESSIONKIT_SOURCE_DIR=${EXPRESSIONKIT_SOURCE_DIR}
+        -DFlowGraph_VERSION=${PROJECT_VERSION}
+        -DFLOWGRAPH_SOURCE_DIR=${CMAKE_SOURCE_DIR}
+        -DPACKAGE_OUTPUT_DIR=${CMAKE_BINARY_DIR}
+        -P ${CMAKE_SOURCE_DIR}/cmake/package.cmake
+    COMMENT "Creating FlowGraph distribution package"
+    VERBATIM
+)
+
 # Installation
 include(GNUInstallDirs)
-install(TARGETS FlowGraph ExpressionKit
+
+# Install ExpressionKit header when we install FlowGraph
+install(FILES ${EXPRESSIONKIT_SOURCE_DIR}/ExpressionKit.hpp 
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(TARGETS FlowGraph
     EXPORT FlowGraphTargets
     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -71,7 +102,6 @@ install(TARGETS FlowGraph ExpressionKit
 )
 
 install(DIRECTORY Core/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES external/ExpressionKit.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(EXPORT FlowGraphTargets
     FILE FlowGraphTargets.cmake
