@@ -17,21 +17,9 @@ add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 # Include directories
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/external>
     $<INSTALL_INTERFACE:include>
 )
-
-# Fetch ExpressionKit dependency
-# Note: Temporarily disabled until ExpressionKit is properly set up
-# include(FetchContent)
-# FetchContent_Declare(
-#     ExpressionKit
-#     GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit.git
-#     GIT_TAG main
-# )
-# FetchContent_MakeAvailable(ExpressionKit)
-
-# Link ExpressionKit
-# target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)

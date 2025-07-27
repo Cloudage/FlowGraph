@@ -16,6 +16,7 @@ add_executable(FlowGraphTests
     unit/test_parser.cpp
     unit/test_engine.cpp
     unit/test_ast.cpp
+    unit/test_expression_integration.cpp
     integration/test_basic_flows.cpp
     integration/test_examples.cpp
 )
