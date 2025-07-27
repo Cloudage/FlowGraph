@@ -70,13 +70,16 @@ int main() {
 ")
 
 # Create package info file
+# Generate timestamp for package info
+string(TIMESTAMP PACKAGE_GENERATION_TIMESTAMP "%Y-%m-%d %H:%M:%S" UTC)
+
 file(WRITE "${PACKAGE_DIR}/PACKAGE_INFO.txt" "
 FlowGraph Package Information
 ============================
 
 Package: ${PACKAGE_NAME}
 Version: ${PACKAGE_VERSION}
-Generated: ${CMAKE_CURRENT_LIST_FILE}
+Generated: ${PACKAGE_GENERATION_TIMESTAMP}
 
 Contents:
 - include/flowgraph/        FlowGraph headers
