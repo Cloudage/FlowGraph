@@ -13,7 +13,7 @@ This example shows how to use FlowGraph by manually copying headers from a gener
 
 2. Compile and run the example:
    ```bash
-   g++ -std=c++17 -I../../../build/flowgraph-1.0.0/include main.cpp -o standalone_example
+   g++ -std=c++17 -I../../../build/flowgraph-*/include main.cpp -o standalone_example
    ./standalone_example
    ```
 
