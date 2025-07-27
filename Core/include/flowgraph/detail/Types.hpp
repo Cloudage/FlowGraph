@@ -60,9 +60,78 @@ using ReturnValue = Parameter;
 using ParameterMap = std::unordered_map<std::string, Value>;
 
 /**
- * @brief External procedure function signature
+ * @brief PROC execution result for async operations
  */
-using ExternalProcedure = std::function<ParameterMap(const ParameterMap&)>;
+struct ProcResult {
+    bool completed = false;        // true if synchronously completed
+    bool success = true;          // execution success status
+    std::string error;            // error message if failed
+    ParameterMap returnValues;    // return values if completed
+    
+    // Factory methods
+    static ProcResult completedSuccess(ParameterMap values = {}) {
+        ProcResult result;
+        result.completed = true;
+        result.success = true;
+        result.returnValues = std::move(values);
+        return result;
+    }
+    
+    static ProcResult completedError(const std::string& errorMsg) {
+        ProcResult result;
+        result.completed = true;
+        result.success = false;
+        result.error = errorMsg;
+        return result;
+    }
+    
+    static ProcResult pending() {
+        ProcResult result;
+        result.completed = false;
+        return result;
+    }
+};
+
+/**
+ * @brief Callback function for async PROC completion
+ */
+using ProcCompletionCallback = std::function<void(const ProcResult&)>;
+
+/**
+ * @brief Enhanced external procedure function signature supporting async operations
+ * 
+ * If the PROC can complete synchronously, it should return a completed ProcResult.
+ * If the PROC needs to execute asynchronously, it should:
+ * 1. Return ProcResult::pending()
+ * 2. Later call the completion callback with the final result
+ */
+using ExternalProcedure = std::function<ProcResult(const ParameterMap&, ProcCompletionCallback)>;
+
+/**
+ * @brief PROC definition structure similar to flow file headers
+ */
+struct ProcDefinition {
+    std::string title;                    // PROC title/description
+    std::vector<Parameter> parameters;    // Input parameters
+    std::vector<ReturnValue> returnValues; // Return values
+    std::vector<std::string> errors;      // Possible error types
+    ExternalProcedure implementation;     // The actual implementation
+    
+    ProcDefinition() = default;
+    ProcDefinition(const std::string& t, 
+                   std::vector<Parameter> params, 
+                   std::vector<ReturnValue> returns,
+                   std::vector<std::string> errs,
+                   ExternalProcedure impl)
+        : title(t), parameters(std::move(params)), returnValues(std::move(returns)), 
+          errors(std::move(errs)), implementation(std::move(impl)) {}
+};
+
+/**
+ * @brief Legacy external procedure function signature (synchronous only)
+ * For backward compatibility with existing synchronous PROCs
+ */
+using LegacyExternalProcedure = std::function<ParameterMap(const ParameterMap&)>;
 
 /**
  * @brief Execution result containing return values and status

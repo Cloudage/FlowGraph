@@ -13,6 +13,12 @@
 
 namespace FlowGraph {
 
+// Forward declarations
+class Engine;
+class Flow;
+class ExecutionContext;
+class DebugExecutionContext;
+
 /**
  * @brief ExpressionKit Environment adapter for FlowGraph ExecutionContext
  */
@@ -52,11 +58,12 @@ private:
  * @brief Execution state for debugging
  */
 enum class ExecutionState {
-    NotStarted,    // Execution not started
-    Running,       // Currently executing
-    Paused,        // Paused for debugging
-    Completed,     // Completed successfully
-    Error          // Stopped due to error
+    NotStarted,      // Execution not started
+    Running,         // Currently executing
+    Paused,          // Paused for debugging
+    WaitingAsync,    // Waiting for async PROC completion
+    Completed,       // Completed successfully
+    Error            // Stopped due to error
 };
 
 /**
@@ -68,6 +75,8 @@ struct DebugStepResult {
     std::string error;
     ParameterMap localVariables;
     bool flowCompleted = false;
+    bool waitingForAsync = false;  // true if waiting for async PROC
+    std::string asyncProcName;     // name of PROC being waited for
     
     DebugStepResult() = default;
     DebugStepResult(ExecutionState s, const std::string& nodeId) 
@@ -146,6 +155,22 @@ public:
     ExecutionState getState() const { return state_; }
     void setState(ExecutionState state) { state_ = state; }
     
+    // Async PROC support
+    void setWaitingForAsync(const std::string& procName) {
+        state_ = ExecutionState::WaitingAsync;
+        waitingAsyncProc_ = procName;
+    }
+    
+    void clearAsyncWait() {
+        if (state_ == ExecutionState::WaitingAsync) {
+            state_ = ExecutionState::Running;
+        }
+        waitingAsyncProc_.clear();
+    }
+    
+    const std::string& getWaitingAsyncProc() const { return waitingAsyncProc_; }
+    bool isWaitingForAsync() const { return state_ == ExecutionState::WaitingAsync; }
+    
     // Debug callback
     void setDebugCallback(DebugCallback callback) { debugCallback_ = callback; }
     void notifyDebugger() const {
@@ -155,6 +180,8 @@ public:
             result.currentNodeId = currentNodeId_;
             result.localVariables = variables_;
             result.flowCompleted = (state_ == ExecutionState::Completed);
+            result.waitingForAsync = isWaitingForAsync();
+            result.asyncProcName = waitingAsyncProc_;
             debugCallback_(result);
         }
     }
@@ -168,6 +195,9 @@ private:
     ExecutionState state_ = ExecutionState::NotStarted;
     std::string currentNodeId_;
     DebugCallback debugCallback_;
+    
+    // Async state
+    std::string waitingAsyncProc_;
     
     void initializeExpressionEnvironment() {
         expressionEnv_ = std::make_unique<ExpressionEnvironment>(variables_);
@@ -264,31 +294,20 @@ private:
  */
 class Flow {
 public:
-    Flow(std::unique_ptr<FlowAST> ast) : ast_(std::move(ast)) {}
+    Flow(std::unique_ptr<FlowAST> ast, Engine* engine = nullptr) 
+        : ast_(std::move(ast)), engine_(engine) {}
     
     /**
      * @brief Execute the flow with given parameters
      */
-    ExecutionResult execute(const ParameterMap& params = {}) {
-        try {
-            ExecutionContext context(*ast_);
-            context.bindParameters(params);
-            return executeInternal(context);
-        } catch (const FlowGraphError& e) {
-            return ExecutionResult(e.message());
-        }
-    }
+    ExecutionResult execute(const ParameterMap& params = {});
     
     /**
      * @brief Create a debug execution context for step-by-step execution
      * @param params Input parameters
      * @return Debug context for controlled execution
      */
-    std::unique_ptr<DebugExecutionContext> createDebugContext(const ParameterMap& params = {}) {
-        auto context = std::make_unique<ExecutionContext>(*ast_);
-        context->bindParameters(params);
-        return std::make_unique<DebugExecutionContext>(std::move(context));
-    }
+    std::unique_ptr<DebugExecutionContext> createDebugContext(const ParameterMap& params = {});
     
     /**
      * @brief Get flow metadata
@@ -306,71 +325,16 @@ public:
     
 private:
     std::unique_ptr<FlowAST> ast_;
+    Engine* engine_;  // Engine reference for PROC execution
     
-    ExecutionResult executeInternal(ExecutionContext& context) {
-        try {
-            context.setState(ExecutionState::Running);
-            
-            // Simple sequential execution of nodes for now
-            // In a real implementation, this would follow the flow connections
-            for (const auto& node : ast_->nodes) {
-                if (auto assign = dynamic_cast<const AssignNode*>(node.get())) {
-                    executeAssignNode(*assign, context);
-                } else if (auto cond = dynamic_cast<const CondNode*>(node.get())) {
-                    executeCondNode(*cond, context);
-                } else if (auto proc = dynamic_cast<const ProcNode*>(node.get())) {
-                    executeProcNode(*proc, context);
-                }
-            }
-            
-            context.setState(ExecutionState::Completed);
-            return ExecutionResult(context.extractReturnValues());
-        } catch (const std::exception& e) {
-            context.setState(ExecutionState::Error);
-            return ExecutionResult("Execution error: " + std::string(e.what()));
-        }
-    }
-    
-    FlowNode* findStartNode(ExecutionContext& context) {
-        // TODO: Find the node connected from START
-        return nullptr;
-    }
-    
-    std::string getNextNode(const std::string& currentNode, ExecutionContext& context) {
-        // TODO: Find next node based on connections
-        return "END";
-    }
-    
-    // Node execution methods
-    void executeAssignNode(const AssignNode& node, ExecutionContext& context) {
-        // Use ExpressionKit to evaluate the expression
-        Value result = context.evaluateExpression(node.expression);
-        context.setVariable(node.variableName, result);
-    }
-    
-    std::string executeCondNode(const CondNode& node, ExecutionContext& context) {
-        // Use ExpressionKit to evaluate the condition
-        Value result = context.evaluateExpression(node.condition);
-        bool condition = result.asBoolean(); // Use ExpressionKit's asBoolean method
-        
-        // Find connections based on condition result
-        auto connections = ast_->getConnectionsFrom(node.id);
-        for (const auto& conn : connections) {
-            if ((condition && conn.fromPort == "Y") || 
-                (!condition && conn.fromPort == "N") ||
-                conn.fromPort.empty()) {
-                return conn.toNode;
-            }
-        }
-        
-        // Default to END if no matching connection found
-        return "END";
-    }
-    
-    void executeProcNode(const ProcNode& node, ExecutionContext& context) {
-        // TODO: Implement procedure execution with external procedures
-        throw FlowGraphError(FlowGraphError::Type::Runtime, "Procedure execution not yet implemented");
-    }
+    // Method declarations - implementations after Engine class
+    ExecutionResult executeInternal(ExecutionContext& context);
+    FlowNode* findStartNode(ExecutionContext& context);
+    std::string getNextNode(const std::string& currentNode, ExecutionContext& context);
+    void executeAssignNode(const AssignNode& node, ExecutionContext& context);
+    std::string executeCondNode(const CondNode& node, ExecutionContext& context);
+    void executeProcNode(const ProcNode& node, ExecutionContext& context);
+    void handleProcResult(const ProcResult& result, const ProcNode& node, ExecutionContext& context);
 };
 
 /**
@@ -385,28 +349,65 @@ public:
     ~Engine() = default;
     
     /**
-     * @brief Register external procedure
+     * @brief Register external procedure with full definition
+     */
+    void registerProcedure(const std::string& name, const ProcDefinition& procDef) {
+        procedures_[name] = procDef;
+    }
+    
+    /**
+     * @brief Register external procedure with implementation only (for backward compatibility)
      */
     void registerProcedure(const std::string& name, ExternalProcedure proc) {
-        procedures_[name] = proc;
+        ProcDefinition def;
+        def.title = name;
+        def.implementation = proc;
+        procedures_[name] = def;
+    }
+    
+    /**
+     * @brief Register legacy synchronous procedure (for backward compatibility)
+     */
+    void registerLegacyProcedure(const std::string& name, LegacyExternalProcedure proc) {
+        // Wrap legacy procedure in new async interface
+        auto asyncWrapper = [proc](const ParameterMap& params, ProcCompletionCallback callback) -> ProcResult {
+            (void)callback;  // Suppress unused parameter warning for sync execution
+            try {
+                // Execute synchronously
+                ParameterMap result = proc(params);
+                return ProcResult::completedSuccess(std::move(result));
+            } catch (const std::exception& e) {
+                return ProcResult::completedError(e.what());
+            }
+        };
+        
+        registerProcedure(name, asyncWrapper);
     }
     
     /**
      * @brief Create a flow from AST
      */
     Flow createFlow(std::unique_ptr<FlowAST> ast) {
-        return Flow(std::move(ast));
+        return Flow(std::move(ast), this);
     }
     
     /**
-     * @brief Get registered procedure
+     * @brief Get registered procedure definition
      */
-    ExternalProcedure getProcedure(const std::string& name) const {
+    const ProcDefinition& getProcedureDefinition(const std::string& name) const {
         auto it = procedures_.find(name);
         if (it == procedures_.end()) {
             throw FlowGraphError(FlowGraphError::Type::Runtime, "Procedure not found: " + name);
         }
         return it->second;
+    }
+    
+    /**
+     * @brief Get registered procedure implementation
+     */
+    ExternalProcedure getProcedure(const std::string& name) const {
+        const auto& def = getProcedureDefinition(name);
+        return def.implementation;
     }
     
     /**
@@ -416,13 +417,24 @@ public:
         return procedures_.find(name) != procedures_.end();
     }
     
+    /**
+     * @brief Get all registered procedure names
+     */
+    std::vector<std::string> getRegisteredProcedures() const {
+        std::vector<std::string> names;
+        for (const auto& [name, def] : procedures_) {
+            names.push_back(name);
+        }
+        return names;
+    }
+    
 private:
-    std::unordered_map<std::string, ExternalProcedure> procedures_;
+    std::unordered_map<std::string, ProcDefinition> procedures_;
     
     // Built-in procedures
     void registerBuiltinProcedures() {
-        registerProcedure("print", builtinPrint);
-        registerProcedure("log", builtinLog);
+        registerLegacyProcedure("print", builtinPrint);
+        registerLegacyProcedure("log", builtinLog);
     }
     
     // Built-in procedure implementations
@@ -438,5 +450,161 @@ private:
         return builtinPrint(params);
     }
 };
+
+// Flow method implementations (after Engine class definition)
+
+inline ExecutionResult Flow::execute(const ParameterMap& params) {
+    try {
+        ExecutionContext context(*ast_);
+        context.bindParameters(params);
+        return executeInternal(context);
+    } catch (const FlowGraphError& e) {
+        return ExecutionResult(e.message());
+    }
+}
+
+inline std::unique_ptr<DebugExecutionContext> Flow::createDebugContext(const ParameterMap& params) {
+    auto context = std::make_unique<ExecutionContext>(*ast_);
+    context->bindParameters(params);
+    return std::make_unique<DebugExecutionContext>(std::move(context));
+}
+
+inline ExecutionResult Flow::executeInternal(ExecutionContext& context) {
+    try {
+        context.setState(ExecutionState::Running);
+        
+        // Simple sequential execution of nodes for now
+        // In a real implementation, this would follow the flow connections
+        for (const auto& node : ast_->nodes) {
+            if (auto assign = dynamic_cast<const AssignNode*>(node.get())) {
+                executeAssignNode(*assign, context);
+            } else if (auto cond = dynamic_cast<const CondNode*>(node.get())) {
+                executeCondNode(*cond, context);
+            } else if (auto proc = dynamic_cast<const ProcNode*>(node.get())) {
+                executeProcNode(*proc, context);
+                
+                // Handle async PROC execution
+                if (context.isWaitingForAsync()) {
+                    // For non-interactive execution, we can't handle async operations
+                    // This would need to be handled at a higher level with event loops
+                    return ExecutionResult("Async PROC execution not supported in synchronous mode");
+                }
+            }
+        }
+        
+        context.setState(ExecutionState::Completed);
+        return ExecutionResult(context.extractReturnValues());
+    } catch (const std::exception& e) {
+        context.setState(ExecutionState::Error);
+        return ExecutionResult("Execution error: " + std::string(e.what()));
+    }
+}
+
+inline FlowNode* Flow::findStartNode(ExecutionContext& context) {
+    // TODO: Find the node connected from START
+    (void)context;  // Suppress unused parameter warning
+    return nullptr;
+}
+
+inline std::string Flow::getNextNode(const std::string& currentNode, ExecutionContext& context) {
+    // TODO: Find next node based on connections
+    (void)currentNode;  // Suppress unused parameter warning
+    (void)context;      // Suppress unused parameter warning
+    return "END";
+}
+
+inline void Flow::executeAssignNode(const AssignNode& node, ExecutionContext& context) {
+    // Use ExpressionKit to evaluate the expression
+    Value result = context.evaluateExpression(node.expression);
+    context.setVariable(node.variableName, result);
+}
+
+inline std::string Flow::executeCondNode(const CondNode& node, ExecutionContext& context) {
+    // Use ExpressionKit to evaluate the condition
+    Value result = context.evaluateExpression(node.condition);
+    bool condition = result.asBoolean(); // Use ExpressionKit's asBoolean method
+    
+    // Find connections based on condition result
+    auto connections = ast_->getConnectionsFrom(node.id);
+    for (const auto& conn : connections) {
+        if ((condition && conn.fromPort == "Y") || 
+            (!condition && conn.fromPort == "N") ||
+            conn.fromPort.empty()) {
+            return conn.toNode;
+        }
+    }
+    
+    // Default to END if no matching connection found
+    return "END";
+}
+
+inline void Flow::executeProcNode(const ProcNode& node, ExecutionContext& context) {
+    if (!engine_) {
+        throw FlowGraphError(FlowGraphError::Type::Runtime, "No engine available for PROC execution");
+    }
+    
+    if (!engine_->hasProcedure(node.procedureName)) {
+        throw FlowGraphError(FlowGraphError::Type::Runtime, "Procedure not found: " + node.procedureName);
+    }
+    
+    // Prepare input parameters from bindings
+    ParameterMap inputParams;
+    for (const auto& binding : node.bindings) {
+        if (!binding.isOutput) { // Input binding (>>)
+            if (context.hasVariable(binding.localVar)) {
+                inputParams[binding.procParam] = context.getVariable(binding.localVar);
+            }
+        }
+    }
+    
+    // Execute the PROC
+    auto procedure = engine_->getProcedure(node.procedureName);
+    
+    // Set up completion callback for async handling
+    bool asyncCompleted = false;
+    ProcResult finalResult;
+    
+    auto completionCallback = [&asyncCompleted, &finalResult](const ProcResult& result) {
+        finalResult = result;
+        asyncCompleted = true;
+    };
+    
+    // Execute the PROC
+    context.setCurrentNode(node.id);
+    ProcResult result = procedure(inputParams, completionCallback);
+    
+    if (result.completed) {
+        // Synchronous completion
+        handleProcResult(result, node, context);
+    } else {
+        // Asynchronous execution - mark context as waiting
+        context.setWaitingForAsync(node.procedureName);
+        // In a real async execution environment, the completion callback would be called later
+        // For this implementation, we'll simulate async behavior but actually wait
+        
+        // TODO: In a real implementation, this would return here and resume later
+        // For now, we'll indicate that async execution is needed
+    }
+}
+
+inline void Flow::handleProcResult(const ProcResult& result, const ProcNode& node, ExecutionContext& context) {
+    if (!result.success) {
+        throw FlowGraphError(FlowGraphError::Type::Runtime, 
+            "PROC execution failed: " + result.error);
+    }
+    
+    // Map output parameters from bindings
+    for (const auto& binding : node.bindings) {
+        if (binding.isOutput) { // Output binding (<<)
+            auto it = result.returnValues.find(binding.procParam);
+            if (it != result.returnValues.end()) {
+                context.setVariable(binding.localVar, it->second);
+            }
+        }
+    }
+    
+    // Clear async wait if it was set
+    context.clearAsyncWait();
+}
 
 } // namespace FlowGraph
