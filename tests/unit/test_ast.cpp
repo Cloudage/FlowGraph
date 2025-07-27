@@ -170,3 +170,52 @@ TEST_CASE("FlowAST validation", "[ast][validation]") {
         REQUIRE(std::find(errors.begin(), errors.end(), "Connection references unknown node: 20") != errors.end());
     }
 }
+
+TEST_CASE("FlowAST error handling", "[ast][errors]") {
+    SECTION("Error definition management") {
+        FlowAST ast;
+        
+        // Add error definitions
+        ast.errors.emplace_back("VALIDATION_ERROR", "Input validation failed");
+        ast.errors.emplace_back("PROCESSING_ERROR", "Processing operation failed");
+        
+        REQUIRE(ast.errors.size() == 2);
+        REQUIRE(ast.hasError("VALIDATION_ERROR"));
+        REQUIRE(ast.hasError("PROCESSING_ERROR"));
+        REQUIRE_FALSE(ast.hasError("NON_EXISTENT_ERROR"));
+        
+        // Check error details
+        REQUIRE(ast.errors[0].name == "VALIDATION_ERROR");
+        REQUIRE(ast.errors[0].comment == "Input validation failed");
+        REQUIRE(ast.errors[1].name == "PROCESSING_ERROR");
+        REQUIRE(ast.errors[1].comment == "Processing operation failed");
+    }
+    
+    SECTION("Error capture connections") {
+        FlowAST ast;
+        ast.errors.emplace_back("SOME_ERR");
+        
+        // 30.SOME_ERR -> END (error capture)
+        FlowConnection errorCapture("30", "END", "SOME_ERR");
+        ast.connections.push_back(errorCapture);
+        
+        REQUIRE(ast.connections.size() == 1);
+        REQUIRE(ast.connections[0].fromNode == "30");
+        REQUIRE(ast.connections[0].toNode == "END");
+        REQUIRE(ast.connections[0].fromPort == "SOME_ERR");
+    }
+    
+    SECTION("Error emission connections") {
+        FlowAST ast;
+        ast.errors.emplace_back("SOME_ERROR");
+        
+        // 50.N -> SOME_ERROR (error emission)
+        FlowConnection errorEmission("50", "SOME_ERROR", "N");
+        ast.connections.push_back(errorEmission);
+        
+        REQUIRE(ast.connections.size() == 1);
+        REQUIRE(ast.connections[0].fromNode == "50");
+        REQUIRE(ast.connections[0].toNode == "SOME_ERROR");
+        REQUIRE(ast.connections[0].fromPort == "N");
+    }
+}

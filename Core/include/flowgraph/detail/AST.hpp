@@ -100,6 +100,17 @@ struct FlowConnection {
 };
 
 /**
+ * @brief Error definition
+ */
+struct ErrorDefinition {
+    std::string name;
+    std::string comment;
+    
+    ErrorDefinition(const std::string& n, const std::string& c = "")
+        : name(n), comment(c) {}
+};
+
+/**
  * @brief Complete FlowGraph AST
  */
 class FlowAST : public ASTNode {
@@ -107,6 +118,7 @@ public:
     std::string title;
     std::vector<Parameter> parameters;
     std::vector<ReturnValue> returnValues;
+    std::vector<ErrorDefinition> errors;
     std::vector<std::unique_ptr<FlowNode>> nodes;
     std::vector<FlowConnection> connections;
     
@@ -118,6 +130,7 @@ public:
     std::vector<FlowConnection> getConnectionsTo(const std::string& nodeId) const;
     bool hasStartConnection() const;
     bool hasEndConnection() const;
+    bool hasError(const std::string& errorName) const;
     
     // Validation
     std::vector<std::string> validate() const;
@@ -166,6 +179,15 @@ inline bool FlowAST::hasStartConnection() const {
 inline bool FlowAST::hasEndConnection() const {
     for (const auto& conn : connections) {
         if (conn.toNode == "END") {
+            return true;
+        }
+    }
+    return false;
+}
+
+inline bool FlowAST::hasError(const std::string& errorName) const {
+    for (const auto& error : errors) {
+        if (error.name == errorName) {
             return true;
         }
     }

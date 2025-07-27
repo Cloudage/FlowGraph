@@ -21,6 +21,7 @@ enum class TokenType {
     Title,
     Params,
     Returns,
+    Errors,
     Nodes,
     Flow,
     Start,
@@ -124,6 +125,7 @@ private:
     void parseTitle(FlowAST& ast);
     void parseParams(FlowAST& ast);
     void parseReturns(FlowAST& ast);
+    void parseErrors(FlowAST& ast);
     void parseNodes(FlowAST& ast);
     void parseFlow(FlowAST& ast);
     
