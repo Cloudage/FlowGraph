@@ -2,8 +2,7 @@
 
 include(CMakeFindDependencyMacro)
 
-# Find ExpressionKit dependency
-find_dependency(ExpressionKit)
+# ExpressionKit is bundled with FlowGraph - no need to find it separately
 
 # Include the targets
 include("${CMAKE_CURRENT_LIST_DIR}/FlowGraphTargets.cmake")

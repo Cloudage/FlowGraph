@@ -91,7 +91,27 @@ See [FileFormat.md](FileFormat.md) for the complete specification.
 
 ## Installation
 
-### CMake
+FlowGraph supports three integration methods to fit different project needs:
+
+### Method 1: Header Package (Standalone)
+
+Download a pre-built header package for simple integration:
+
+```bash
+# Generate standalone package
+cmake -B build
+cmake --build build --target create_package
+
+# Copy headers to your project
+cp -r build/flowgraph-1.0.0/include/ /path/to/your/project/
+
+# Include in your code
+#include "flowgraph/FlowGraph.hpp"
+```
+
+### Method 2: CMake FetchContent (Recommended)
+
+Automatic dependency resolution with CMake:
 
 ```cmake
 include(FetchContent)
@@ -102,7 +122,22 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(FlowGraph)
 
-target_link_libraries(your_target FlowGraph::FlowGraph)
+target_link_libraries(your_target PRIVATE FlowGraph::FlowGraph)
+```
+
+### Method 3: System Installation
+
+Install FlowGraph system-wide for use with find_package:
+
+```bash
+# Install FlowGraph
+cmake -B build
+cmake --build build
+sudo cmake --install build
+
+# Use in your project
+find_package(FlowGraph REQUIRED)
+target_link_libraries(your_target PRIVATE FlowGraph::FlowGraph)
 ```
 
 ### Swift Package Manager
@@ -112,6 +147,8 @@ dependencies: [
     .package(url: "https://github.com/Cloudage/FlowGraph.git", from: "1.0.0")
 ]
 ```
+
+For detailed integration examples, see [examples/integration/](examples/integration/).
 
 ## Building and Testing
 
