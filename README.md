@@ -1,5 +1,8 @@
 # FlowGraph
 
+[![CI](https://github.com/Cloudage/FlowGraph/actions/workflows/ci.yml/badge.svg)](https://github.com/Cloudage/FlowGraph/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A C++ header-only library for parsing and executing text-based flowcharts. FlowGraph provides a simple, embeddable flowchart execution engine designed for games and applications that need dynamic workflow capabilities.
 
 ## 🚀 Key Features
