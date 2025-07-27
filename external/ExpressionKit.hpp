@@ -156,10 +156,10 @@ namespace ExpressionKit {
                 } catch (...) {
                     // Fall through to throw exception
                 }
-                throw ExprException("无法将字符串 '" + stringValue + "' 转换为数值");
+                throw ExprException("Cannot convert string '" + stringValue + "' to a numeric value");
             }
             if (isBoolean()) return data.boolean ? 1.0 : 0.0;
-            throw ExprException("类型错误：期望数值");
+            throw ExprException("Type error: Expected a numeric value");
         }
 
         bool asBoolean() const {
