@@ -33,6 +33,11 @@ RETURNS:   // 可选部分，如果没有返回值可以省略
 <类型> <返回值名>
 ...
 
+ERRORS:    // 可选部分，如果没有错误定义可以省略
+// 错误定义注释
+<错误名称>
+...
+
 NODES:
 /* 节点定义部分 */
 // 节点注释
@@ -86,6 +91,40 @@ FlowGraph 支持两种注释格式：
 - 注释描述其后的第一个有效元素
 - 空行会中断注释与元素的关联
 - 多行注释不能嵌套
+
+## 错误处理
+
+FlowGraph 支持声明式错误处理机制，允许在流程中定义、捕获和发出错误。
+
+### 错误定义
+
+在文件头部使用 ERRORS 段声明错误：
+
+```
+ERRORS:
+SOME_ERR
+SOME_OTHER_ERROR
+```
+
+### 错误捕获
+
+针对 PROC 节点，可以捕获特定错误并重定向流程：
+
+```
+30.SOME_ERR -> END
+```
+
+这表示如果节点 30（PROC 节点）抛出 SOME_ERR 错误，流程将跳转到 END。
+
+### 错误发出
+
+可以在任何节点发出自定义错误：
+
+```
+50.N -> SOME_ERROR
+```
+
+这表示如果条件节点 50 的结果为假（N），将发出 SOME_ERROR 错误。
 
 ## 节点类型
 
@@ -311,6 +350,58 @@ START -> 10
 10 -> 20
 20 -> 30
 30 -> END
+```
+
+### 带错误处理的 FlowGraph
+
+```
+/*
+ * 用户认证流程 - 带错误处理
+ * 
+ * 演示错误定义、捕获和发出
+ */
+TITLE: 用户认证（带错误处理）
+
+PARAMS:
+S username
+S password
+
+RETURNS:
+B success
+S token
+
+ERRORS:
+USER_NOT_FOUND
+INVALID_PASSWORD
+AUTH_SERVICE_ERROR
+
+NODES:
+/* 验证流程 */
+10 PROC check_user username>>login exists<<found
+20 COND found
+30 PROC verify_password password>>input username>>user valid<<is_valid
+40 COND is_valid
+50 PROC generate_token username>>user token<<auth_token
+60 ASSIGN B success true
+
+/* 错误处理 */
+100 ASSIGN B success false
+110 ASSIGN S token ""
+
+FLOW:
+START -> 10
+10 -> 20
+10.USER_NOT_FOUND -> 100    // 捕获用户不存在错误
+20.Y -> 30
+20.N -> USER_NOT_FOUND      // 发出用户不存在错误
+30 -> 40
+30.AUTH_SERVICE_ERROR -> 100  // 捕获认证服务错误
+40.Y -> 50
+40.N -> INVALID_PASSWORD    // 发出密码错误
+50 -> 60
+60 -> END
+100 -> 110
+110 -> END
 ```
 
 ## 文件扩展名
