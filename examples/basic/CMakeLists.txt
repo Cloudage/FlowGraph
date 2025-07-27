@@ -7,3 +7,7 @@ target_compile_features(hello_example PRIVATE cxx_std_17)
 add_executable(flow_expression_demo flow_expression_demo.cpp)
 target_link_libraries(flow_expression_demo FlowGraph::FlowGraph)
 target_compile_features(flow_expression_demo PRIVATE cxx_std_17)
+
+add_executable(async_proc_demo async_proc_demo.cpp)
+target_link_libraries(async_proc_demo FlowGraph::FlowGraph)
+target_compile_features(async_proc_demo PRIVATE cxx_std_17)

@@ -60,9 +60,122 @@ using ReturnValue = Parameter;
 using ParameterMap = std::unordered_map<std::string, Value>;
 
 /**
- * @brief External procedure function signature
+ * @brief PROC execution result for async operations
  */
-using ExternalProcedure = std::function<ParameterMap(const ParameterMap&)>;
+struct ProcResult {
+    bool completed = false;        // true if synchronously completed
+    bool success = true;          // execution success status
+    std::string error;            // error message if failed
+    ParameterMap returnValues;    // return values if completed
+    
+    // Factory methods
+    static ProcResult completedSuccess(ParameterMap values = {}) {
+        ProcResult result;
+        result.completed = true;
+        result.success = true;
+        result.returnValues = std::move(values);
+        return result;
+    }
+    
+    static ProcResult completedError(const std::string& errorMsg) {
+        ProcResult result;
+        result.completed = true;
+        result.success = false;
+        result.error = errorMsg;
+        return result;
+    }
+    
+    static ProcResult pending() {
+        ProcResult result;
+        result.completed = false;
+        return result;
+    }
+};
+
+/**
+ * @brief Callback object for async PROC completion that can track resolution status
+ */
+class ProcCompletionCallback {
+public:
+    ProcCompletionCallback() = default;
+    
+    /**
+     * @brief Call the callback with a result
+     * @param result The PROC execution result
+     */
+    void operator()(const ProcResult& result) {
+        result_ = result;
+        resolved_ = true;
+        if (callback_) {
+            callback_(result);
+        }
+    }
+    
+    /**
+     * @brief Check if the callback has been resolved (called)
+     * @return true if the callback was called
+     */
+    bool IsResolved() const { return resolved_; }
+    
+    /**
+     * @brief Get the result (only valid if IsResolved() returns true)
+     * @return The PROC execution result
+     */
+    const ProcResult& GetResult() const { return result_; }
+    
+    /**
+     * @brief Set an optional async callback for when the result is available
+     * @param callback Function to call when result is available
+     */
+    void SetAsyncCallback(std::function<void(const ProcResult&)> callback) {
+        callback_ = callback;
+        if (resolved_ && callback_) {
+            callback_(result_);
+        }
+    }
+
+private:
+    bool resolved_ = false;
+    ProcResult result_;
+    std::function<void(const ProcResult&)> callback_;
+};
+
+/**
+ * @brief Enhanced external procedure function signature supporting async operations
+ * 
+ * The PROC should call the completion callback either:
+ * 1. Immediately for synchronous operations
+ * 2. Later via async mechanism for asynchronous operations
+ * 
+ * The execution engine checks if the callback IsResolved() immediately after the call.
+ */
+using ExternalProcedure = std::function<void(const ParameterMap&, ProcCompletionCallback&)>;
+
+/**
+ * @brief PROC definition structure similar to flow file headers
+ */
+struct ProcDefinition {
+    std::string title;                    // PROC title/description
+    std::vector<Parameter> parameters;    // Input parameters
+    std::vector<ReturnValue> returnValues; // Return values
+    std::vector<std::string> errors;      // Possible error types
+    ExternalProcedure implementation;     // The actual implementation
+    
+    ProcDefinition() = default;
+    ProcDefinition(const std::string& t, 
+                   std::vector<Parameter> params, 
+                   std::vector<ReturnValue> returns,
+                   std::vector<std::string> errs,
+                   ExternalProcedure impl)
+        : title(t), parameters(std::move(params)), returnValues(std::move(returns)), 
+          errors(std::move(errs)), implementation(std::move(impl)) {}
+};
+
+/**
+ * @brief Legacy external procedure function signature (synchronous only)
+ * For backward compatibility with existing synchronous PROCs
+ */
+using LegacyExternalProcedure = std::function<ParameterMap(const ParameterMap&)>;
 
 /**
  * @brief Execution result containing return values and status

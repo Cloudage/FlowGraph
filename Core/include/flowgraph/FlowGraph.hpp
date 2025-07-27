@@ -37,11 +37,45 @@ public:
     Flow parseFlow(const std::string& content, const std::string& name = "");
     
     /**
-     * @brief Register external procedure
+     * @brief Register external procedure with full definition
+     * @param name Procedure name
+     * @param procDef Complete procedure definition including metadata
+     */
+    void registerProcedure(const std::string& name, const ProcDefinition& procDef);
+    
+    /**
+     * @brief Register external procedure with implementation only
      * @param name Procedure name
      * @param proc Procedure implementation
      */
     void registerProcedure(const std::string& name, ExternalProcedure proc);
+    
+    /**
+     * @brief Register legacy synchronous external procedure (for backward compatibility)
+     * @param name Procedure name
+     * @param proc Legacy synchronous procedure implementation
+     */
+    void registerLegacyProcedure(const std::string& name, LegacyExternalProcedure proc);
+    
+    /**
+     * @brief Get procedure implementation for testing purposes
+     * @param name Procedure name
+     * @return Procedure implementation
+     */
+    ExternalProcedure getProcedure(const std::string& name);
+    
+    /**
+     * @brief Check if procedure is registered
+     * @param name Procedure name
+     * @return True if procedure is registered
+     */
+    bool hasProcedure(const std::string& name);
+    
+    /**
+     * @brief Get all registered procedure names
+     * @return Vector of procedure names
+     */
+    std::vector<std::string> getRegisteredProcedures();
     
     /**
      * @brief Load a flow and create debug context
@@ -79,5 +113,31 @@ private:
  * @return Execution result
  */
 ExecutionResult executeFlow(const std::string& filepath, const ParameterMap& params = {});
+
+// Inline implementations for FlowGraphEngine methods
+
+inline void FlowGraphEngine::registerProcedure(const std::string& name, const ProcDefinition& procDef) {
+    engine_.registerProcedure(name, procDef);
+}
+
+inline void FlowGraphEngine::registerProcedure(const std::string& name, ExternalProcedure proc) {
+    engine_.registerProcedure(name, proc);
+}
+
+inline void FlowGraphEngine::registerLegacyProcedure(const std::string& name, LegacyExternalProcedure proc) {
+    engine_.registerLegacyProcedure(name, proc);
+}
+
+inline ExternalProcedure FlowGraphEngine::getProcedure(const std::string& name) {
+    return engine_.getProcedure(name);
+}
+
+inline bool FlowGraphEngine::hasProcedure(const std::string& name) {
+    return engine_.hasProcedure(name);
+}
+
+inline std::vector<std::string> FlowGraphEngine::getRegisteredProcedures() {
+    return engine_.getRegisteredProcedures();
+}
 
 } // namespace FlowGraph
