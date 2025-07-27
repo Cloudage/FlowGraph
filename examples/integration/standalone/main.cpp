@@ -14,7 +14,7 @@ int main() {
         std::cout << "✓ ExpressionKit integration working: " << testValue.asString() << std::endl;
         
         // Create some basic AST nodes to verify functionality
-        FlowGraph::AssignNode assignNode("start", FlowGraph::TypeInfo(FlowGraph::ValueType::Integer), "x", "0");
+        FlowGraph::AssignNode assignNode("start", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "x", "0");
         FlowGraph::ProcNode procNode("process", "increment");
         
         std::cout << "✓ AST nodes created successfully" << std::endl;

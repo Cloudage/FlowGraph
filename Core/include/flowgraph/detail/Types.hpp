@@ -13,8 +13,7 @@ namespace FlowGraph {
  * @brief Basic data types supported by FlowGraph - mapped to ExpressionKit types
  */
 enum class ValueType {
-    Integer,    // I - mapped to ExpressionKit NUMBER but with integer semantics
-    Float,      // F - mapped to ExpressionKit NUMBER  
+    Number,     // N - mapped to ExpressionKit NUMBER (unified number type)
     Boolean,    // B - mapped to ExpressionKit BOOLEAN
     String      // S - mapped to ExpressionKit STRING
 };
@@ -232,8 +231,7 @@ std::string valueTypeToString(ValueType type);
 
 // Helper functions to work with ExpressionKit::Value in FlowGraph context
 ValueType getValueType(const Value& value);
-Value createValue(int64_t value);  // For Integer type semantics
-Value createValue(double value);   // For Float type semantics
+Value createValue(double value);   // For Number type (unified number semantics)
 Value createValue(bool value);     // For Boolean type semantics
 Value createValue(const std::string& value); // For String type semantics
 
@@ -241,20 +239,13 @@ Value createValue(const std::string& value); // For String type semantics
 
 inline ValueType getValueType(const Value& value) {
     if (value.isNumber()) {
-        // Note: ExpressionKit only has NUMBER type, but FlowGraph distinguishes Integer vs Float
-        // For now, we'll treat all numbers as Float to maintain compatibility
-        // In a more sophisticated implementation, we could store type hints
-        return ValueType::Float;
+        return ValueType::Number;
     } else if (value.isBoolean()) {
         return ValueType::Boolean;
     } else if (value.isString()) {
         return ValueType::String;
     }
     throw FlowGraphError(FlowGraphError::Type::Type, "Unknown ExpressionKit value type");
-}
-
-inline Value createValue(int64_t value) {
-    return Value(static_cast<double>(value)); // Convert to double for ExpressionKit
 }
 
 inline Value createValue(double value) {
@@ -295,8 +286,9 @@ inline std::string Location::toString() const {
 }
 
 inline ValueType parseValueType(const std::string& typeStr) {
-    if (typeStr == "I") return ValueType::Integer;
-    if (typeStr == "F") return ValueType::Float;
+    if (typeStr == "N") return ValueType::Number;
+    // Backward compatibility: "I" and "F" both map to Number
+    if (typeStr == "I" || typeStr == "F") return ValueType::Number;
     if (typeStr == "B") return ValueType::Boolean;
     if (typeStr == "S") return ValueType::String;
     throw FlowGraphError(FlowGraphError::Type::Parse, "Invalid type: " + typeStr);
@@ -304,8 +296,7 @@ inline ValueType parseValueType(const std::string& typeStr) {
 
 inline std::string valueTypeToString(ValueType type) {
     switch (type) {
-        case ValueType::Integer: return "I";
-        case ValueType::Float: return "F";
+        case ValueType::Number: return "N";
         case ValueType::Boolean: return "B";
         case ValueType::String: return "S";
     }

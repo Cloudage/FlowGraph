@@ -4,16 +4,14 @@
 using namespace FlowGraph;
 
 TEST_CASE("Value construction and type checking", "[types][value]") {
-    SECTION("Integer values") {
-        Value intVal = createValue(static_cast<int64_t>(42));
-        REQUIRE(getValueType(intVal) == ValueType::Float); // Note: ExpressionKit intentionally treats all numbers as Float due to the unified number system
-        REQUIRE(intVal.isNumber());
-        REQUIRE(intVal.asNumber() == 42.0);
-    }
-    
-    SECTION("Float values") {
+    SECTION("Number values") {
+        Value numberVal = createValue(42.0);
+        REQUIRE(getValueType(numberVal) == ValueType::Number);
+        REQUIRE(numberVal.isNumber());
+        REQUIRE(numberVal.asNumber() == 42.0);
+        
         Value floatVal = createValue(3.14);
-        REQUIRE(getValueType(floatVal) == ValueType::Float);
+        REQUIRE(getValueType(floatVal) == ValueType::Number);
         REQUIRE(floatVal.isNumber());
         REQUIRE(floatVal.asNumber() == 3.14);
     }
@@ -84,11 +82,11 @@ TEST_CASE("Value boolean conversion", "[types][value]") {
 
 TEST_CASE("TypeInfo validation", "[types][typeinfo]") {
     SECTION("Required parameter matching") {
-        TypeInfo floatType(ValueType::Float, false);
+        TypeInfo numberType(ValueType::Number, false);
         
-        REQUIRE(floatType.matches(createValue(42.0)));
-        REQUIRE(floatType.matches(createValue(3.14)));
-        REQUIRE_FALSE(floatType.matches(createValue("hello")));
+        REQUIRE(numberType.matches(createValue(42.0)));
+        REQUIRE(numberType.matches(createValue(3.14)));
+        REQUIRE_FALSE(numberType.matches(createValue("hello")));
     }
     
     SECTION("Boolean type matching") {
@@ -110,17 +108,21 @@ TEST_CASE("TypeInfo validation", "[types][typeinfo]") {
 
 TEST_CASE("Type string conversion", "[types][conversion]") {
     SECTION("ValueType to string") {
-        REQUIRE(valueTypeToString(ValueType::Integer) == "I");
-        REQUIRE(valueTypeToString(ValueType::Float) == "F");
+        REQUIRE(valueTypeToString(ValueType::Number) == "N");
         REQUIRE(valueTypeToString(ValueType::Boolean) == "B");
         REQUIRE(valueTypeToString(ValueType::String) == "S");
     }
     
     SECTION("String to ValueType") {
-        REQUIRE(parseValueType("I") == ValueType::Integer);
-        REQUIRE(parseValueType("F") == ValueType::Float);
+        REQUIRE(parseValueType("N") == ValueType::Number);
         REQUIRE(parseValueType("B") == ValueType::Boolean);
         REQUIRE(parseValueType("S") == ValueType::String);
+    }
+    
+    SECTION("Backward compatibility for old type strings") {
+        // Old "I" and "F" types should both map to Number for backward compatibility
+        REQUIRE(parseValueType("I") == ValueType::Number);
+        REQUIRE(parseValueType("F") == ValueType::Number);
     }
     
     SECTION("Invalid type string throws") {

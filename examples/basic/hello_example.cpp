@@ -20,7 +20,7 @@ int main() {
         
         // Test with variables
         std::cout << "\nTesting expressions with variables:\n";
-        context.setVariable("x", FlowGraph::createValue(static_cast<int64_t>(10)));
+        context.setVariable("x", FlowGraph::createValue(10.0));
         context.setVariable("y", FlowGraph::createValue(25.5));
         
         std::cout << "x = " << context.getVariable("x").toString() << std::endl;

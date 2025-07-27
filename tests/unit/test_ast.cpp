@@ -6,11 +6,11 @@ using namespace FlowGraph;
 TEST_CASE("AST node creation", "[ast][nodes]") {
     SECTION("AssignNode creation") {
         Location loc("test.flow", 10, 5);
-        TypeInfo intType(ValueType::Integer);
-        AssignNode node("10", intType, "count", "0", loc);
+        TypeInfo numberType(ValueType::Number);
+        AssignNode node("10", numberType, "count", "0", loc);
         
         REQUIRE(node.id == "10");
-        REQUIRE(node.targetType.type == ValueType::Integer);
+        REQUIRE(node.targetType.type == ValueType::Number);
         REQUIRE(node.variableName == "count");
         REQUIRE(node.expression == "0");
         REQUIRE(node.location.line == 10);
@@ -67,7 +67,7 @@ TEST_CASE("FlowAST operations", "[ast][flow]") {
     SECTION("Find node by ID") {
         FlowAST ast;
         
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "count", "0");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "count", "0");
         auto cond = std::make_unique<CondNode>("20", "count < 10");
         
         ast.nodes.push_back(std::move(assign));
@@ -121,7 +121,7 @@ TEST_CASE("FlowAST validation", "[ast][validation]") {
         ast.title = "Test Flow";
         
         // Add a simple node
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "count", "0");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "count", "0");
         ast.nodes.push_back(std::move(assign));
         
         // Add valid connections
@@ -135,7 +135,7 @@ TEST_CASE("FlowAST validation", "[ast][validation]") {
     SECTION("Missing START connection") {
         FlowAST ast;
         
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "count", "0");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "count", "0");
         ast.nodes.push_back(std::move(assign));
         ast.connections.emplace_back("10", "END");
         
@@ -147,7 +147,7 @@ TEST_CASE("FlowAST validation", "[ast][validation]") {
     SECTION("Missing END connection") {
         FlowAST ast;
         
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "count", "0");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "count", "0");
         ast.nodes.push_back(std::move(assign));
         ast.connections.emplace_back("START", "10");
         
@@ -159,7 +159,7 @@ TEST_CASE("FlowAST validation", "[ast][validation]") {
     SECTION("Unknown node reference") {
         FlowAST ast;
         
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "count", "0");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "count", "0");
         ast.nodes.push_back(std::move(assign));
         ast.connections.emplace_back("START", "10");
         ast.connections.emplace_back("10", "20"); // 20 doesn't exist

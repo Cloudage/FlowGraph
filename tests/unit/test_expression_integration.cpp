@@ -10,19 +10,19 @@ TEST_CASE("ExpressionKit integration - Basic evaluation", "[expression][integrat
         
         // Test basic arithmetic - ExpressionKit returns all numbers as double
         auto result1 = context.evaluateExpression("2 + 3");
-        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(getValueType(result1) == ValueType::Number);
         REQUIRE(result1.asNumber() == 5.0);
         
         auto result2 = context.evaluateExpression("10 - 4");
-        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(getValueType(result2) == ValueType::Number);
         REQUIRE(result2.asNumber() == 6.0);
         
         auto result3 = context.evaluateExpression("3 * 4");
-        REQUIRE(getValueType(result3) == ValueType::Float);
+        REQUIRE(getValueType(result3) == ValueType::Number);
         REQUIRE(result3.asNumber() == 12.0);
         
         auto result4 = context.evaluateExpression("15.0 / 3.0");
-        REQUIRE(getValueType(result4) == ValueType::Float);
+        REQUIRE(getValueType(result4) == ValueType::Number);
         REQUIRE(result4.asNumber() == 5.0);
     }
     
@@ -67,17 +67,17 @@ TEST_CASE("ExpressionKit integration - Variable access", "[expression][integrati
         ExecutionContext context(ast);
         
         // Set some variables
-        context.setVariable("x", createValue(static_cast<int64_t>(10)));
+        context.setVariable("x", createValue(10.0));
         context.setVariable("y", createValue(5.5));
         context.setVariable("flag", createValue(true));
         
         // Test variable access in expressions - ExpressionKit returns numbers as double
         auto result1 = context.evaluateExpression("x + 5");
-        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(getValueType(result1) == ValueType::Number);
         REQUIRE(result1.asNumber() == 15.0);
         
         auto result2 = context.evaluateExpression("y * 2");
-        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(getValueType(result2) == ValueType::Number);
         REQUIRE(result2.asNumber() == 11.0);
         
         auto result3 = context.evaluateExpression("flag && true");
@@ -89,12 +89,12 @@ TEST_CASE("ExpressionKit integration - Variable access", "[expression][integrati
         FlowAST ast;
         ExecutionContext context(ast);
         
-        context.setVariable("a", createValue(static_cast<int64_t>(10)));
-        context.setVariable("b", createValue(static_cast<int64_t>(20)));
-        context.setVariable("c", createValue(static_cast<int64_t>(3)));
+        context.setVariable("a", createValue(10.0));
+        context.setVariable("b", createValue(20.0));
+        context.setVariable("c", createValue(3.0));
         
         auto result = context.evaluateExpression("(a + b) / c");
-        REQUIRE(getValueType(result) == ValueType::Float);
+        REQUIRE(getValueType(result) == ValueType::Number);
         REQUIRE(result.asNumber() == 10.0);
     }
 }
@@ -106,21 +106,21 @@ TEST_CASE("ExpressionKit integration - Mathematical functions", "[expression][in
         
         // Test min/max functions
         auto result1 = context.evaluateExpression("max(10, 5)");
-        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(getValueType(result1) == ValueType::Number);
         REQUIRE(result1.asNumber() == 10.0);
         
         auto result2 = context.evaluateExpression("min(3.5, 7.2)");
-        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(getValueType(result2) == ValueType::Number);
         REQUIRE(result2.asNumber() == 3.5);
         
         // Test sqrt function
         auto result3 = context.evaluateExpression("sqrt(16)");
-        REQUIRE(getValueType(result3) == ValueType::Float);
+        REQUIRE(getValueType(result3) == ValueType::Number);
         REQUIRE(result3.asNumber() == 4.0);
         
         // Test abs function
         auto result4 = context.evaluateExpression("abs(-5)");
-        REQUIRE(getValueType(result4) == ValueType::Float);
+        REQUIRE(getValueType(result4) == ValueType::Number);
         REQUIRE(result4.asNumber() == 5.0);
     }
     
@@ -128,15 +128,15 @@ TEST_CASE("ExpressionKit integration - Mathematical functions", "[expression][in
         FlowAST ast;
         ExecutionContext context(ast);
         
-        context.setVariable("num", createValue(static_cast<int64_t>(25)));
-        context.setVariable("neg", createValue(static_cast<int64_t>(-10)));
+        context.setVariable("num", createValue(25.0));
+        context.setVariable("neg", createValue(-10.0));
         
         auto result1 = context.evaluateExpression("sqrt(num)");
-        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(getValueType(result1) == ValueType::Number);
         REQUIRE(result1.asNumber() == 5.0);
         
         auto result2 = context.evaluateExpression("abs(neg)");
-        REQUIRE(getValueType(result2) == ValueType::Float);
+        REQUIRE(getValueType(result2) == ValueType::Number);
         REQUIRE(result2.asNumber() == 10.0);
     }
 }
@@ -183,11 +183,11 @@ TEST_CASE("ExpressionKit integration - AST node execution", "[expression][integr
         ExecutionContext context(ast);
         
         // Test that we can evaluate expressions that would be used in AST nodes
-        context.setVariable("count", createValue(static_cast<int64_t>(5)));
+        context.setVariable("count", createValue(5.0));
         
         // Test an assignment-like expression
         auto result1 = context.evaluateExpression("count + 10");
-        REQUIRE(getValueType(result1) == ValueType::Float);
+        REQUIRE(getValueType(result1) == ValueType::Number);
         REQUIRE(result1.asNumber() == 15.0);
         
         // Test a condition-like expression
@@ -207,7 +207,7 @@ TEST_CASE("ExpressionKit integration - AST node execution", "[expression][integr
         ast->title = "Test Flow";
         
         // Add a simple assign node
-        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Integer), "result", "5 + 3");
+        auto assign = std::make_unique<AssignNode>("10", TypeInfo(ValueType::Number), "result", "5 + 3");
         ast->nodes.push_back(std::move(assign));
         
         // Add flow connections
@@ -269,8 +269,8 @@ TEST_CASE("ExpressionKit integration - Direct Value usage", "[expression][integr
         REQUIRE(stringVal.asString() == "test");
         
         // Test that getValueType helper works
-        REQUIRE(getValueType(intVal) == ValueType::Float);
-        REQUIRE(getValueType(floatVal) == ValueType::Float);
+        REQUIRE(getValueType(intVal) == ValueType::Number);
+        REQUIRE(getValueType(floatVal) == ValueType::Number);
         REQUIRE(getValueType(boolVal) == ValueType::Boolean);
         REQUIRE(getValueType(stringVal) == ValueType::String);
     }
