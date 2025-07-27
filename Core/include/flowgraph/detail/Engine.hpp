@@ -8,6 +8,7 @@
 #include <limits>
 #include <cmath>
 #include <iostream>
+#include <typeinfo>
 #include "ExpressionKit.hpp"
 
 namespace FlowGraph {
@@ -338,10 +339,27 @@ private:
     std::unique_ptr<FlowAST> ast_;
     
     ExecutionResult executeInternal(ExecutionContext& context) {
-        // Basic implementation - just return success for now
-        // TODO: Implement full flow execution logic
-        context.setState(ExecutionState::Completed);
-        return ExecutionResult(context.extractReturnValues());
+        try {
+            context.setState(ExecutionState::Running);
+            
+            // Simple sequential execution of nodes for now
+            // In a real implementation, this would follow the flow connections
+            for (const auto& node : ast_->nodes) {
+                if (auto assign = dynamic_cast<const AssignNode*>(node.get())) {
+                    executeAssignNode(*assign, context);
+                } else if (auto cond = dynamic_cast<const CondNode*>(node.get())) {
+                    executeCondNode(*cond, context);
+                } else if (auto proc = dynamic_cast<const ProcNode*>(node.get())) {
+                    executeProcNode(*proc, context);
+                }
+            }
+            
+            context.setState(ExecutionState::Completed);
+            return ExecutionResult(context.extractReturnValues());
+        } catch (const std::exception& e) {
+            context.setState(ExecutionState::Error);
+            return ExecutionResult("Execution error: " + std::string(e.what()));
+        }
     }
     
     FlowNode* findStartNode(ExecutionContext& context) {
