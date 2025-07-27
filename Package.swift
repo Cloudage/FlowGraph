@@ -21,7 +21,7 @@ let package = Package(
         .target(
             name: "CFlowGraph",
             dependencies: [],
-            path: "Sources/CFlowGraph",
+            path: "Swift/CFlowGraph",
             publicHeadersPath: "include",
             cxxSettings: [
                 .define("FLOWGRAPH_SWIFT_PACKAGE"),
@@ -31,7 +31,7 @@ let package = Package(
         .target(
             name: "FlowGraph",
             dependencies: [],
-            path: "Sources/FlowGraph"
+            path: "Swift/FlowGraph"
         ),
         .testTarget(
             name: "FlowGraphTests",

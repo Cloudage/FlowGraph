@@ -16,7 +16,7 @@ add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 
 # Include directories
 target_include_directories(FlowGraph INTERFACE 
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
     $<INSTALL_INTERFACE:include>
 )
 
@@ -56,7 +56,7 @@ install(TARGETS FlowGraph
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY Core/include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 install(EXPORT FlowGraphTargets
     FILE FlowGraphTargets.cmake

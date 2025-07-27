@@ -121,6 +121,36 @@ examples/
 - [ ] Expression error handling
 - [ ] Expression tests
 
+**ExpressionKit Integration Challenges Encountered:**
+
+During the integration of Cloudage/ExpressionKit for expression evaluation, several key challenges were identified:
+
+1. **String Type Support**: ExpressionKit currently only supports numeric (int64_t, double) and boolean types. FlowGraph requires string type support for text-based conditions, parameter passing, and dynamic text generation. This limitation requires us to:
+   - Submit a feature request for native string support in ExpressionKit
+   - Consider temporary workarounds for string operations
+   - Plan for future migration when string support is available
+
+2. **Type System Alignment**: FlowGraph's 4-type system (Integer, Float, Boolean, String) needs to align with ExpressionKit's current 2-type system (Number, Boolean). This creates challenges for:
+   - Type coercion between systems
+   - Error message consistency
+   - Performance of type conversions
+
+3. **Variable Environment Integration**: ExpressionKit's IEnvironment interface needs to be bridged with FlowGraph's ExecutionContext variable storage, requiring careful consideration of:
+   - Variable scoping rules
+   - Type safety across the bridge
+   - Performance of variable lookups
+
+4. **Swift Package Dependencies**: Adding ExpressionKit as a dependency to the Swift Package creates complexity in:
+   - Cross-platform compilation
+   - C++ interop layer management
+   - Package version compatibility
+
+These challenges are being addressed through:
+- Feature request submission to ExpressionKit for string support
+- Careful bridge design between type systems
+- Comprehensive testing of the integration layer
+- Documentation of workarounds and future migration paths
+
 ### Milestone 6: Advanced Features (Week 8)
 - [ ] External PROC node support (calling other .flow files)
 - [ ] Parameter passing between flows

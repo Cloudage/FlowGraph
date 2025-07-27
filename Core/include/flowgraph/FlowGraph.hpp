@@ -17,7 +17,7 @@
 namespace FlowGraph {
 
 /**
- * @brief Main FlowGraph engine for loading and executing flows
+ * @brief Main FlowGraph engine for loading and executing flows with debugging support
  */
 class FlowGraphEngine {
 public:
@@ -42,6 +42,30 @@ public:
      * @param proc Procedure implementation
      */
     void registerProcedure(const std::string& name, ExternalProcedure proc);
+    
+    /**
+     * @brief Load a flow and create debug context
+     * @param filepath Path to the .flow file
+     * @param params Input parameters
+     * @return Debug execution context for step-by-step execution
+     */
+    std::unique_ptr<DebugExecutionContext> loadFlowForDebugging(
+        const std::string& filepath, 
+        const ParameterMap& params = {}
+    );
+    
+    /**
+     * @brief Parse a flow and create debug context
+     * @param content Flow content as string
+     * @param params Input parameters
+     * @param name Optional name for the flow
+     * @return Debug execution context for step-by-step execution
+     */
+    std::unique_ptr<DebugExecutionContext> parseFlowForDebugging(
+        const std::string& content, 
+        const ParameterMap& params = {},
+        const std::string& name = ""
+    );
     
 private:
     Parser parser_;
