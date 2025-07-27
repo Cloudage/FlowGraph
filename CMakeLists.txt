@@ -57,7 +57,9 @@ target_include_directories(FlowGraph INTERFACE
     $<INSTALL_INTERFACE:include>
 )
 
-# Don't link to ExpressionKit target since we're bundling the header
+# Temporary workaround: Don't link to ExpressionKit target since we're bundling the header.
+# This is due to upstream issues with ExpressionKit (missing inline keyword and non-English error messages).
+# Once these issues are resolved, uncomment the line below to link to ExpressionKit target.
 # target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
 
 # Compiler requirements
