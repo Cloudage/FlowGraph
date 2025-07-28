@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Add options
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
 option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
-option(BUILD_EDITOR "Build FlowGraph editor" OFF)
+option(BUILD_EDITOR "Build FlowGraph editor" ON)
 option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 
 # Fetch ExpressionKit using FetchContent
