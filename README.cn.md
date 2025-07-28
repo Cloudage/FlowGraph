@@ -142,7 +142,7 @@ Examples/                  # 使用示例
 
 ## 开发
 
-该项目遵循测试驱动开发。开发路线图请参阅 [DEV_PHASE_1.cn.md](DEV_PHASE_1.cn.md)。
+该项目遵循测试驱动开发。开发状态请参阅 [DEV_PHASE_1.md](DEV_PHASE_1.md)、[DEV_PHASE_2.md](DEV_PHASE_2.md)。
 
 ## 许可证
 
