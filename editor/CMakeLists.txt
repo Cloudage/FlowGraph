@@ -82,7 +82,8 @@ endif()
 
 # Platform-specific configuration
 if(APPLE)
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_METAL_CPP)
+    # Use Objective-C Metal headers (standard macOS approach)
+    # Remove IMGUI_IMPL_METAL_CPP to use Metal.h instead of Metal.hpp
     set_target_properties(imgui PROPERTIES 
         COMPILE_FLAGS "-fobjc-arc"
     )

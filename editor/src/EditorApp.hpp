@@ -11,6 +11,17 @@ struct GLFWwindow;
 using Microsoft::WRL::ComPtr;
 #endif
 
+#ifdef __APPLE__
+#ifdef __OBJC__
+@protocol MTLDevice;
+@protocol MTLCommandQueue;
+@protocol MTLRenderPassDescriptor;
+@class CAMetalLayer;
+#else
+typedef void* id;
+#endif
+#endif
+
 namespace FlowGraph {
 namespace Editor {
 
@@ -115,6 +126,13 @@ private:
     ComPtr<ID3D11DeviceContext> m_d3dContext;
     ComPtr<IDXGISwapChain1> m_swapChain;
     ComPtr<ID3D11RenderTargetView> m_renderTargetView;
+#endif
+
+#ifdef __APPLE__
+    // Metal-specific members for macOS
+    id m_metalDevice = nullptr;
+    id m_metalCommandQueue = nullptr;
+    id m_metalLayer = nullptr;
 #endif
     
     // Window properties

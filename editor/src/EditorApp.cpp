@@ -19,6 +19,9 @@
 #ifdef _WIN32
     #define GLFW_EXPOSE_NATIVE_WIN32
     #include <GLFW/glfw3native.h>
+#elif defined(__APPLE__)
+    #define GLFW_EXPOSE_NATIVE_COCOA
+    #include <GLFW/glfw3native.h>
 #endif
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
@@ -231,7 +234,34 @@ bool EditorApp::InitializeWindow() {
 
 bool EditorApp::SetupRenderingBackend() {
 #ifdef __APPLE__
-    // Metal setup would go here
+    // Metal setup for macOS
+    // Create Metal device
+    m_metalDevice = MTLCreateSystemDefaultDevice();
+    if (!m_metalDevice) {
+        std::cerr << "Failed to create Metal device" << std::endl;
+        return false;
+    }
+    
+    // Create command queue
+    m_metalCommandQueue = [(id<MTLDevice>)m_metalDevice newCommandQueue];
+    if (!m_metalCommandQueue) {
+        std::cerr << "Failed to create Metal command queue" << std::endl;
+        return false;
+    }
+    
+    // Create Metal layer for the GLFW window
+    NSWindow* nsWindow = glfwGetCocoaWindow(m_window);
+    CAMetalLayer* metalLayer = [CAMetalLayer layer];
+    metalLayer.device = (id<MTLDevice>)m_metalDevice;
+    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    
+    NSView* contentView = [nsWindow contentView];
+    [contentView setWantsLayer:YES];
+    [contentView setLayer:metalLayer];
+    
+    m_metalLayer = metalLayer;
+    
+    std::cout << "Metal initialized successfully" << std::endl;
     return true;
 #elif defined(_WIN32)
     // Initialize DirectX 11 for Windows
@@ -345,7 +375,7 @@ bool EditorApp::InitializeImGui() {
 
 #ifdef __APPLE__
     // Metal backend
-    ImGui_ImplMetal_Init(MTLCreateSystemDefaultDevice());
+    ImGui_ImplMetal_Init((id<MTLDevice>)m_metalDevice);
 #elif defined(_WIN32)
     // DirectX 11 backend for Windows
     ImGui_ImplDX11_Init(m_d3dDevice.Get(), m_d3dContext.Get());
@@ -366,7 +396,8 @@ void EditorApp::RenderFrame() {
     ImGui_ImplGlfw_NewFrame();
 
 #ifdef __APPLE__
-    ImGui_ImplMetal_NewFrame(nullptr);
+    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
+    ImGui_ImplMetal_NewFrame([MTLRenderPassDescriptor renderPassDescriptor]);
 #elif defined(_WIN32)
     ImGui_ImplDX11_NewFrame();
 #else
@@ -405,8 +436,34 @@ void EditorApp::RenderFrame() {
     ImGui::Render();
 
 #ifdef __APPLE__
-    // Metal rendering would go here
-    // For now, just clear
+    // Metal rendering for macOS
+    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
+    id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
+    
+    if (drawable) {
+        // Create render pass descriptor
+        MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+        renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
+        renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.45, 0.55, 0.60, 1.0);
+        renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+        
+        // Create command buffer
+        id<MTLCommandBuffer> commandBuffer = [(id<MTLCommandQueue>)m_metalCommandQueue commandBuffer];
+        
+        // Create render encoder
+        id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
+        
+        // Render ImGui
+        ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), commandBuffer, renderEncoder);
+        
+        // End encoding
+        [renderEncoder endEncoding];
+        
+        // Present drawable
+        [commandBuffer presentDrawable:drawable];
+        [commandBuffer commit];
+    }
 #elif defined(_WIN32)
     // DirectX 11 rendering for Windows
     const float clearColor[4] = { 0.45f, 0.55f, 0.60f, 1.00f };
@@ -498,6 +555,20 @@ bool EditorApp::RecreateDirectXRenderTarget(int width, int height) {
 void EditorApp::CleanupImGui() {
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
+    
+    // Cleanup Metal resources
+    if (m_metalCommandQueue) {
+        [(id)m_metalCommandQueue release];
+        m_metalCommandQueue = nullptr;
+    }
+    if (m_metalDevice) {
+        [(id)m_metalDevice release];
+        m_metalDevice = nullptr;
+    }
+    if (m_metalLayer) {
+        [(id)m_metalLayer release];
+        m_metalLayer = nullptr;
+    }
 #elif defined(_WIN32)
     ImGui_ImplDX11_Shutdown();
     
