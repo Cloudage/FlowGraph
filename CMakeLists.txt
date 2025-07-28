@@ -19,9 +19,12 @@ FetchContent_Declare(
         ExpressionKit
         GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
         GIT_TAG        main
-        DOWNLOAD_ONLY  TRUE
+        GIT_SHALLOW    TRUE
 )
-FetchContent_MakeAvailable(ExpressionKit)
+# Use legacy FetchContent_Populate to avoid building ExpressionKit CMake project
+# which has compatibility issues
+set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
+FetchContent_Populate(ExpressionKit)
 set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
 
 # Editor dependencies (only fetched when BUILD_EDITOR is enabled)
@@ -70,9 +73,8 @@ if(BUILD_EDITOR)
 endif()
 
 # Create ExpressionKit interface target
-if(NOT TARGET ExpressionKit::ExpressionKit)
+if(NOT TARGET ExpressionKit)
     add_library(ExpressionKit INTERFACE)
-    add_library(ExpressionKit::ExpressionKit ALIAS ExpressionKit)
     target_include_directories(ExpressionKit INTERFACE 
         $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
@@ -84,17 +86,15 @@ endif()
 add_library(FlowGraph INTERFACE)
 add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 
-# Include directories
+# Include directories  
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
     $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
-# Temporary workaround: Don't link to ExpressionKit target since we're bundling the header.
-# This is due to upstream issues with ExpressionKit (missing inline keyword and non-English error messages).
-# Once these issues are resolved, uncomment the line below to link to ExpressionKit target.
-# target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
+# Don't link to ExpressionKit target since we're bundling the header directly
+# This maintains compatibility and avoids CMake target conflicts
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)
