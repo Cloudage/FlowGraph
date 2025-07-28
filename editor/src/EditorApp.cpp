@@ -1,12 +1,9 @@
 #include "EditorApp.hpp"
 
-// Platform-specific includes - glad must come before GLFW on Linux
+// Platform-specific includes - glad must come before GLFW on non-Apple platforms
 #ifdef __APPLE__
     #include <Metal/Metal.h>
     #include <MetalKit/MetalKit.h>
-#elif defined(_WIN32)
-    #include <d3d11.h>
-    #include <tchar.h>
 #else
     #include <glad/glad.h>
     #define GLFW_INCLUDE_NONE
@@ -19,8 +16,6 @@
 // Platform-specific ImGui backend includes
 #ifdef __APPLE__
     #include <imgui_impl_metal.h>
-#elif defined(_WIN32)
-    #include <imgui_impl_dx11.h>
 #else
     #include <imgui_impl_opengl3.h>
 #endif
@@ -121,10 +116,8 @@ int EditorApp::Run() {
     std::cout << "Platform: "
 #ifdef __APPLE__
               << "macOS (Metal)"
-#elif defined(_WIN32)
-              << "Windows (DirectX 11)"
 #else
-              << "Linux (OpenGL 3.3)"
+              << "Cross-platform (OpenGL 3.3)"
 #endif
               << std::endl;
 
@@ -175,9 +168,8 @@ bool EditorApp::InitializeWindow() {
     // Configure GLFW window hints based on platform
 #ifdef __APPLE__
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-#elif defined(_WIN32)
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #else
+    // Use OpenGL 3.3 for Windows and Linux
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -202,8 +194,8 @@ bool EditorApp::InitializeWindow() {
     glfwSetKeyCallback(m_window, KeyCallback);
     glfwSetWindowFocusCallback(m_window, WindowFocusCallback);
 
-#if !defined(__APPLE__) && !defined(_WIN32)
-    // Make OpenGL context current (only for OpenGL backend)
+#ifndef __APPLE__
+    // Make OpenGL context current (for Windows and Linux)
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(1); // Enable vsync
 #endif
@@ -212,8 +204,8 @@ bool EditorApp::InitializeWindow() {
 }
 
 bool EditorApp::SetupRenderingBackend() {
-#if !defined(__APPLE__) && !defined(_WIN32)
-    // Initialize GLAD for OpenGL
+#ifndef __APPLE__
+    // Initialize GLAD for OpenGL (Windows and Linux)
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
         std::cerr << "Failed to initialize GLAD" << std::endl;
         return false;
@@ -243,12 +235,8 @@ bool EditorApp::InitializeImGui() {
 #ifdef __APPLE__
     // Metal backend
     ImGui_ImplMetal_Init(MTLCreateSystemDefaultDevice());
-#elif defined(_WIN32)
-    // DirectX 11 backend
-    // Note: This is a simplified setup - production code would need proper D3D11 device creation
-    ImGui_ImplDX11_Init(nullptr, nullptr);
 #else
-    // OpenGL 3.3 backend
+    // OpenGL 3.3 backend for Windows and Linux
     const char* glsl_version = "#version 330";
     ImGui_ImplOpenGL3_Init(glsl_version);
 #endif
@@ -265,8 +253,6 @@ void EditorApp::RenderFrame() {
 
 #ifdef __APPLE__
     ImGui_ImplMetal_NewFrame(nullptr);
-#elif defined(_WIN32)
-    ImGui_ImplDX11_NewFrame();
 #else
     ImGui_ImplOpenGL3_NewFrame();
 #endif
@@ -285,10 +271,8 @@ void EditorApp::RenderFrame() {
     ImGui::Text("Platform: "
 #ifdef __APPLE__
                 "macOS (Metal)"
-#elif defined(_WIN32)
-                "Windows (DirectX 11)"
 #else
-                "Linux (OpenGL 3.3)"
+                "Cross-platform (OpenGL 3.3)"
 #endif
     );
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 
@@ -305,11 +289,8 @@ void EditorApp::RenderFrame() {
 #ifdef __APPLE__
     // Metal rendering would go here
     // For now, just clear
-#elif defined(_WIN32)
-    // DirectX 11 rendering
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 #else
-    // OpenGL rendering
+    // OpenGL rendering for Windows and Linux
     int display_w, display_h;
     glfwGetFramebufferSize(m_window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
@@ -334,8 +315,6 @@ void EditorApp::RequestRender() {
 void EditorApp::CleanupImGui() {
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
-#elif defined(_WIN32)
-    ImGui_ImplDX11_Shutdown();
 #else
     ImGui_ImplOpenGL3_Shutdown();
 #endif

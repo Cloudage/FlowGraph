@@ -15,12 +15,8 @@ if(APPLE)
     # Metal backend for macOS
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm)
     set(PLATFORM_LIBS "-framework Metal -framework MetalKit -framework Cocoa -framework IOKit -framework CoreVideo")
-elseif(WIN32)
-    # DirectX 11 backend for Windows
-    list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp)
-    set(PLATFORM_LIBS d3d11.lib d3dcompiler.lib dxgi.lib)
-elseif(UNIX AND NOT APPLE)
-    # OpenGL 3.3 backend for Linux
+else()
+    # OpenGL 3.3 backend for Windows and Linux (more reliable than DirectX)
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
     
     # Use existing glad target if available, otherwise create one
@@ -29,9 +25,18 @@ elseif(UNIX AND NOT APPLE)
         target_include_directories(glad PUBLIC ${glad_SOURCE_DIR}/include)
     endif()
     
-    set(PLATFORM_LIBS glad ${CMAKE_DL_LIBS})
+    set(PLATFORM_LIBS glad)
     find_package(OpenGL REQUIRED)
     list(APPEND PLATFORM_LIBS OpenGL::GL)
+    
+    # Add platform-specific libraries
+    if(WIN32)
+        # Windows-specific libraries for OpenGL
+        list(APPEND PLATFORM_LIBS opengl32)
+    else()
+        # Linux-specific libraries  
+        list(APPEND PLATFORM_LIBS ${CMAKE_DL_LIBS})
+    endif()
 endif()
 
 # Create ImGui library
@@ -84,9 +89,8 @@ if(APPLE)
     set_target_properties(imgui PROPERTIES 
         COMPILE_FLAGS "-fobjc-arc"
     )
-elseif(WIN32)
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_DX11_CPP)
-elseif(UNIX AND NOT APPLE)
+else()
+    # OpenGL configuration for Windows and Linux
     target_include_directories(imgui PUBLIC ${glad_SOURCE_DIR}/include)
     target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 endif()
