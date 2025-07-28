@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
 option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
 option(BUILD_EDITOR "Build FlowGraph editor" OFF)
+option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
@@ -62,8 +63,20 @@ if(BUILD_EDITOR)
         )
     endif()
     
+    # ImGui Test Engine (for UI testing) - only when UI tests are enabled
+    if(BUILD_EDITOR_TESTS)
+        FetchContent_Declare(
+            imgui_test_engine
+            GIT_REPOSITORY https://github.com/ocornut/imgui_test_engine.git
+            GIT_TAG main
+        )
+    endif()
+    
     # Make dependencies available
     FetchContent_MakeAvailable(imgui glfw)
+    if(BUILD_EDITOR_TESTS)
+        FetchContent_MakeAvailable(imgui_test_engine)
+    endif()
     if(UNIX AND NOT APPLE)
         FetchContent_MakeAvailable(glad)
     endif()
