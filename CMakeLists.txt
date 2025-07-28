@@ -15,27 +15,14 @@ option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
 
-# Note: The upstream ExpressionKit repository has some issues:
-# 1. Missing inline keyword causing multiple definition errors
-# 2. Chinese error messages instead of English
-# For now, we use a local copy but maintain FetchContent infrastructure
-# for when these issues are resolved upstream.
-
-# FetchContent_Declare(
-#     ExpressionKit
-#     GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit.git
-#     GIT_TAG        main
-# )
-# 
-# # Fetch ExpressionKit without making it available (we'll configure it ourselves)
-# FetchContent_GetProperties(ExpressionKit)
-# if(NOT expressionkit_POPULATED)
-#     FetchContent_Populate(ExpressionKit)
-#     set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
-# endif()
-
-# For now, use local ExpressionKit.hpp until upstream issues are resolved
-set(EXPRESSIONKIT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
+FetchContent_Declare(
+        ExpressionKit
+        GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
+        GIT_TAG        main
+        DOWNLOAD_ONLY  TRUE
+)
+FetchContent_MakeAvailable(ExpressionKit)
+set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
 
 # Editor dependencies (only fetched when BUILD_EDITOR is enabled)
 if(BUILD_EDITOR)
