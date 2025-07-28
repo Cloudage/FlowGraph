@@ -20,7 +20,7 @@ elseif(WIN32)
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp)
     
     # DirectX 11 libraries
-    set(PLATFORM_LIBS d3d11 dxgi dxguid)
+    set(PLATFORM_LIBS d3d11 dxgi dxguid d3dcompiler)
 else()
     # OpenGL 3.3 backend for Linux
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
