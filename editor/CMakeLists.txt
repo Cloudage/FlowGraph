@@ -44,10 +44,17 @@ target_link_libraries(imgui PUBLIC glfw)
 
 # Add ImGui Test Engine library if UI tests are enabled
 if(BUILD_EDITOR_TESTS)
+    # Create separate ImGui library with test engine support
+    add_library(imgui_with_tests ${IMGUI_SOURCES})
+    target_include_directories(imgui_with_tests PUBLIC 
+        ${imgui_SOURCE_DIR}
+        ${imgui_SOURCE_DIR}/backends
+    )
+    target_link_libraries(imgui_with_tests PUBLIC glfw)
     # Use custom imconfig.h for test engine
-    target_compile_definitions(imgui PUBLIC IMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/imconfig.h")
+    target_compile_definitions(imgui_with_tests PUBLIC IMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/imconfig.h")
     
-    # Create ImGui Test Engine library with hook implementations
+    # Create ImGui Test Engine library
     set(IMGUI_TEST_ENGINE_SOURCES
         ${imgui_test_engine_SOURCE_DIR}/imgui_test_engine/imgui_te_context.cpp
         ${imgui_test_engine_SOURCE_DIR}/imgui_test_engine/imgui_te_coroutine.cpp
@@ -64,7 +71,7 @@ if(BUILD_EDITOR_TESTS)
         ${imgui_test_engine_SOURCE_DIR}
         ${imgui_test_engine_SOURCE_DIR}/imgui_test_engine
     )
-    target_link_libraries(imgui_test_engine PUBLIC imgui)
+    target_link_libraries(imgui_test_engine PUBLIC imgui_with_tests)
     target_compile_definitions(imgui_test_engine PUBLIC 
         IMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/imconfig.h"
     )
@@ -94,12 +101,15 @@ target_include_directories(FlowGraphEditor PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(FlowGraphEditor PRIVATE
+# Base libraries for the editor
+set(EDITOR_LIBS
     FlowGraph::FlowGraph
     imgui
     glfw
     ${PLATFORM_LIBS}
 )
+
+target_link_libraries(FlowGraphEditor PRIVATE ${EDITOR_LIBS})
 
 # Set C++ standard
 target_compile_features(FlowGraphEditor PRIVATE cxx_std_17)
@@ -128,16 +138,14 @@ if(BUILD_EDITOR_TESTS)
     
     target_link_libraries(FlowGraphEditorTests PRIVATE
         FlowGraph::FlowGraph
-        imgui
-        imgui_test_engine
+        imgui_test_engine  # This brings in imgui_with_tests
         glfw
         ${PLATFORM_LIBS}
     )
     
     # Enable test engine for UI tests
     target_compile_definitions(FlowGraphEditorTests PRIVATE
-        IMGUI_ENABLE_TEST_ENGINE
-        IMGUI_TEST_ENGINE_ENABLE_COROUTINE_STDTHREAD_IMPL=1
+        IMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/imconfig.h"
     )
     
     target_compile_features(FlowGraphEditorTests PRIVATE cxx_std_17)

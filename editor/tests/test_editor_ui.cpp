@@ -242,7 +242,9 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         // Simulate some nodes
         for (int i = 0; i < vars.Int1; i++) {
             ImGui::PushID(i);
-            if (ImGui::Button(ImFormatString("Node %d", i).c_str())) {
+            char button_label[64];
+            snprintf(button_label, sizeof(button_label), "Node %d", i);
+            if (ImGui::Button(button_label)) {
                 vars.Int2 = i; // Selected node
             }
             ImGui::PopID();
@@ -307,16 +309,20 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         // Create many UI elements to stress test
         for (int i = 0; i < item_count; i++) {
             ImGui::PushID(i);
+            char label[64];
             if (i % 4 == 0) {
-                ImGui::Button(ImFormatString("Button %d", i).c_str());
+                snprintf(label, sizeof(label), "Button %d", i);
+                ImGui::Button(label);
             } else if (i % 4 == 1) {
                 ImGui::Text("Text item %d", i);
             } else if (i % 4 == 2) {
                 static bool b = false;
-                ImGui::Checkbox(ImFormatString("Check %d", i).c_str(), &b);
+                snprintf(label, sizeof(label), "Check %d", i);
+                ImGui::Checkbox(label, &b);
             } else {
                 static float f = 0.5f;
-                ImGui::SliderFloat(ImFormatString("Slider %d", i).c_str(), &f, 0.0f, 1.0f);
+                snprintf(label, sizeof(label), "Slider %d", i);
+                ImGui::SliderFloat(label, &f, 0.0f, 1.0f);
             }
             ImGui::PopID();
         }
