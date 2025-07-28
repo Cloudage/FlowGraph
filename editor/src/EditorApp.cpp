@@ -37,6 +37,7 @@
 
 #include <iostream>
 #include <vector>
+#include <algorithm>
 
 namespace FlowGraph {
 namespace Editor {
@@ -92,6 +93,14 @@ namespace {
         EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
         if (app && width > 0 && height > 0) {
             app->HandleWindowResize(width, height);
+        }
+    }
+    
+    // Content scale callback to handle DPI changes
+    void ContentScaleCallback(GLFWwindow* window, float xscale, float yscale) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->HandleContentScaleChange(xscale, yscale);
         }
     }
 }
@@ -222,6 +231,7 @@ bool EditorApp::InitializeWindow() {
     glfwSetKeyCallback(m_window, KeyCallback);
     glfwSetWindowFocusCallback(m_window, WindowFocusCallback);
     glfwSetWindowSizeCallback(m_window, WindowSizeCallback);
+    glfwSetWindowContentScaleCallback(m_window, ContentScaleCallback);
 
 #if !defined(__APPLE__) && !defined(_WIN32)
     // Make OpenGL context current (for Linux only)
@@ -366,6 +376,32 @@ bool EditorApp::InitializeImGui() {
     // Enable keyboard and gamepad controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    
+    // Configure high-DPI support
+    float xscale, yscale;
+    glfwGetWindowContentScale(m_window, &xscale, &yscale);
+    m_contentScaleX = xscale;
+    m_contentScaleY = yscale;
+    
+    // Set font scaling for high-DPI displays
+    if (xscale > 1.0f || yscale > 1.0f) {
+        float scale = std::max(xscale, yscale);
+        io.FontGlobalScale = scale;
+        
+        // Configure display size for proper DPI handling
+        int windowWidth, windowHeight;
+        int framebufferWidth, framebufferHeight;
+        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+        
+        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+        if (windowWidth > 0 && windowHeight > 0) {
+            io.DisplayFramebufferScale = ImVec2(
+                (float)framebufferWidth / windowWidth, 
+                (float)framebufferHeight / windowHeight
+            );
+        }
+    }
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -426,6 +462,9 @@ void EditorApp::RenderFrame() {
     );
     ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 
                 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+    
+    // Display DPI scale information
+    ImGui::Text("Content Scale: %.1fx%.1f", m_contentScaleX, m_contentScaleY);
     
     if (ImGui::Button("Show Demo Window")) {
         show_demo_window = true;
@@ -509,6 +548,37 @@ void EditorApp::HandleWindowResize(int width, int height) {
     
     // Wake up the event loop for immediate re-render
     glfwPostEmptyEvent();
+}
+
+void EditorApp::HandleContentScaleChange(float xscale, float yscale) {
+    m_contentScaleX = xscale;
+    m_contentScaleY = yscale;
+    
+    // Update ImGui font scaling for new DPI
+    ImGuiIO& io = ImGui::GetIO();
+    if (xscale > 1.0f || yscale > 1.0f) {
+        float scale = std::max(xscale, yscale);
+        io.FontGlobalScale = scale;
+    } else {
+        io.FontGlobalScale = 1.0f;
+    }
+    
+    // Update display framebuffer scale
+    int windowWidth, windowHeight;
+    int framebufferWidth, framebufferHeight;
+    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+    
+    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+    if (windowWidth > 0 && windowHeight > 0) {
+        io.DisplayFramebufferScale = ImVec2(
+            (float)framebufferWidth / windowWidth, 
+            (float)framebufferHeight / windowHeight
+        );
+    }
+    
+    // Request re-render to apply new scaling
+    RequestRender();
 }
 
 #ifdef _WIN32

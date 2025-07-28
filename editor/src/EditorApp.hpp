@@ -65,6 +65,13 @@ public:
      */
     void HandleWindowResize(int width, int height);
 
+    /**
+     * @brief Handle content scale changes (for high-DPI support)
+     * @param xscale New horizontal content scale
+     * @param yscale New vertical content scale
+     */
+    void HandleContentScaleChange(float xscale, float yscale);
+
 private:
     /**
      * @brief Initialize GLFW and create window
@@ -119,6 +126,10 @@ private:
     GLFWwindow* m_window = nullptr;
     bool m_initialized = false;
     bool m_shouldRender = true;
+    
+    // Content scale for high-DPI support
+    float m_contentScaleX = 1.0f;
+    float m_contentScaleY = 1.0f;
     
 #ifdef _WIN32
     // DirectX 11-specific members for Windows
