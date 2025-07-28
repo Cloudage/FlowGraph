@@ -15,15 +15,15 @@ option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
 
+# Use legacy FetchContent_Populate to avoid building ExpressionKit CMake project
+# which has compatibility issues. Suppress the deprecation warning.
+cmake_policy(SET CMP0169 OLD)
 FetchContent_Declare(
         ExpressionKit
         GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
         GIT_TAG        main
         GIT_SHALLOW    TRUE
 )
-# Use legacy FetchContent_Populate to avoid building ExpressionKit CMake project
-# which has compatibility issues
-set(CMAKE_POLICY_DEFAULT_CMP0169 OLD)
 FetchContent_Populate(ExpressionKit)
 set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
 

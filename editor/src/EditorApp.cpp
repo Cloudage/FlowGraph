@@ -40,8 +40,39 @@ namespace {
     void WindowRefreshCallback(GLFWwindow* window) {
         EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
         if (app) {
-            // Trigger a redraw by posting an empty event
-            glfwPostEmptyEvent();
+            app->RequestRender();
+        }
+    }
+    
+    // Cursor position callback to trigger rendering on mouse movement
+    void CursorPosCallback(GLFWwindow* window, double xpos, double ypos) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->RequestRender();
+        }
+    }
+    
+    // Mouse button callback to trigger rendering
+    void MouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->RequestRender();
+        }
+    }
+    
+    // Key callback to trigger rendering
+    void KeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->RequestRender();
+        }
+    }
+    
+    // Window focus callback
+    void WindowFocusCallback(GLFWwindow* window, int focused) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app) {
+            app->RequestRender();
         }
     }
 }
@@ -97,6 +128,9 @@ int EditorApp::Run() {
 #endif
               << std::endl;
 
+    // Request initial render
+    RequestRender();
+
     // Main application loop with on-demand rendering
     while (ShouldContinue()) {
         // Wait for events instead of polling continuously
@@ -106,6 +140,12 @@ int EditorApp::Run() {
         if (m_shouldRender) {
             RenderFrame();
             m_shouldRender = false;
+            
+            // Check if ImGui wants to continue rendering (animations, etc.)
+            ImGuiIO& io = ImGui::GetIO();
+            if (io.WantCaptureMouse || io.WantCaptureKeyboard) {
+                m_shouldRender = true;
+            }
         }
     }
 
@@ -155,8 +195,12 @@ bool EditorApp::InitializeWindow() {
     // Set window user pointer for callbacks
     glfwSetWindowUserPointer(m_window, this);
     
-    // Set refresh callback for on-demand rendering
+    // Set all necessary callbacks for on-demand rendering
     glfwSetWindowRefreshCallback(m_window, WindowRefreshCallback);
+    glfwSetCursorPosCallback(m_window, CursorPosCallback);
+    glfwSetMouseButtonCallback(m_window, MouseButtonCallback);
+    glfwSetKeyCallback(m_window, KeyCallback);
+    glfwSetWindowFocusCallback(m_window, WindowFocusCallback);
 
 #if !defined(__APPLE__) && !defined(_WIN32)
     // Make OpenGL context current (only for OpenGL backend)
@@ -278,17 +322,13 @@ void EditorApp::RenderFrame() {
 }
 
 bool EditorApp::ShouldContinue() {
-    if (glfwWindowShouldClose(m_window)) {
-        return false;
-    }
+    return !glfwWindowShouldClose(m_window);
+}
 
-    // Check if we need to render (window events, ImGui wants to render, etc.)
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.WantCaptureMouse || io.WantCaptureKeyboard || glfwGetWindowAttrib(m_window, GLFW_FOCUSED)) {
-        m_shouldRender = true;
-    }
-
-    return true;
+void EditorApp::RequestRender() {
+    m_shouldRender = true;
+    // Wake up the event loop
+    glfwPostEmptyEvent();
 }
 
 void EditorApp::CleanupImGui() {

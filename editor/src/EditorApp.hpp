@@ -35,6 +35,11 @@ public:
      */
     void Shutdown();
 
+    /**
+     * @brief Request a render on next frame (for on-demand rendering)
+     */
+    void RequestRender();
+
 private:
     /**
      * @brief Initialize GLFW and create window
