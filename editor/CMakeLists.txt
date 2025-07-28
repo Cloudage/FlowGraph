@@ -96,11 +96,20 @@ else()
     target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 endif()
 
-# FlowGraph Editor executable
-add_executable(FlowGraph_Editor_App
-    src/main.cpp
-    src/EditorApp.cpp
-)
+# FlowGraph Editor executable - platform-specific source files
+if(APPLE)
+    # Use .mm file for Metal/Objective-C++ support on macOS
+    add_executable(FlowGraph_Editor_App
+        src/main.cpp
+        src/EditorApp.mm
+    )
+else()
+    # Use .cpp file for Windows and Linux
+    add_executable(FlowGraph_Editor_App
+        src/main.cpp
+        src/EditorApp.cpp
+    )
+endif()
 
 # Group in IDE
 set_target_properties(FlowGraph_Editor_App PROPERTIES FOLDER "Editor")
@@ -127,17 +136,28 @@ if(APPLE)
     set_target_properties(FlowGraph_Editor_App PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
+        COMPILE_FLAGS "-fobjc-arc"
     )
 endif()
 
 # Add UI tests if enabled
 if(BUILD_EDITOR_TESTS)
-    # FlowGraph Editor UI Tests executable
-    add_executable(FlowGraph_Editor_UI_Tests
-        tests/test_main.cpp
-        tests/test_editor_ui.cpp
-        src/EditorApp.cpp  # Re-use editor app code
-    )
+    # FlowGraph Editor UI Tests executable - platform-specific source files
+    if(APPLE)
+        # Use .mm file for Metal/Objective-C++ support on macOS
+        add_executable(FlowGraph_Editor_UI_Tests
+            tests/test_main.cpp
+            tests/test_editor_ui.cpp
+            src/EditorApp.mm  # Re-use editor app code
+        )
+    else()
+        # Use .cpp file for Windows and Linux
+        add_executable(FlowGraph_Editor_UI_Tests
+            tests/test_main.cpp
+            tests/test_editor_ui.cpp
+            src/EditorApp.cpp  # Re-use editor app code
+        )
+    endif()
     
     target_include_directories(FlowGraph_Editor_UI_Tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -162,6 +182,7 @@ if(BUILD_EDITOR_TESTS)
     if(APPLE)
         set_target_properties(FlowGraph_Editor_UI_Tests PROPERTIES
             MACOSX_BUNDLE TRUE
+            COMPILE_FLAGS "-fobjc-arc"
         )
     endif()
     
