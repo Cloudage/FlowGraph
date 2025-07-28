@@ -15,17 +15,13 @@ option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
 
-# Use legacy FetchContent_Populate to avoid building ExpressionKit CMake project
-# which has compatibility issues. Suppress the deprecation warning.
-cmake_policy(SET CMP0169 OLD)
 FetchContent_Declare(
         ExpressionKit
         GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
-        GIT_TAG        main
+        GIT_TAG        v0.0.1
         GIT_SHALLOW    TRUE
 )
-FetchContent_Populate(ExpressionKit)
-set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
+FetchContent_MakeAvailable(ExpressionKit)
 
 # Editor dependencies (only fetched when BUILD_EDITOR is enabled)
 if(BUILD_EDITOR)
@@ -72,15 +68,7 @@ if(BUILD_EDITOR)
     endif()
 endif()
 
-# Create ExpressionKit interface target
-if(NOT TARGET ExpressionKit)
-    add_library(ExpressionKit INTERFACE)
-    target_include_directories(ExpressionKit INTERFACE 
-        $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
-    )
-    target_compile_features(ExpressionKit INTERFACE cxx_std_17)
-endif()
+# ExpressionKit is now available as ExpressionKit target from FetchContent_MakeAvailable
 
 # Header-only library
 add_library(FlowGraph INTERFACE)
@@ -89,12 +77,11 @@ add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 # Include directories  
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
-    $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
-# Don't link to ExpressionKit target since we're bundling the header directly
-# This maintains compatibility and avoids CMake target conflicts
+# Link to ExpressionKit target  
+target_link_libraries(FlowGraph INTERFACE ExpressionKit)
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)
@@ -118,7 +105,6 @@ endif()
 # Package generation target
 add_custom_target(create_package
     COMMAND ${CMAKE_COMMAND} 
-        -DEXPRESSIONKIT_SOURCE_DIR=${EXPRESSIONKIT_SOURCE_DIR}
         -DFlowGraph_VERSION=${PROJECT_VERSION}
         -DFLOWGRAPH_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -DPACKAGE_OUTPUT_DIR=${CMAKE_BINARY_DIR}
@@ -130,10 +116,7 @@ add_custom_target(create_package
 # Installation
 include(GNUInstallDirs)
 
-# Install ExpressionKit header when we install FlowGraph
-install(FILES ${EXPRESSIONKIT_SOURCE_DIR}/ExpressionKit.hpp 
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# ExpressionKit will be handled by its own installation when using find_package
 
 install(TARGETS FlowGraph
     EXPORT FlowGraphTargets
