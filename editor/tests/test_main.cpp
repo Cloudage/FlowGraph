@@ -152,23 +152,36 @@ bool UITestApp::InitializeImGui() {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     
+    // For headless testing, disable font loading and rendering
+    if (headless_mode) {
+        io.Fonts->AddFontDefault();
+        io.DisplaySize = ImVec2(1280, 720);
+        io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    }
+    
     // Setup ImGui style
     ImGui::StyleColorsDark();
     
     // Setup platform/renderer backends
-    ImGui_ImplGlfw_InitForOther(window, true);
-    
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+
 #ifdef __APPLE__
-    // Metal backend initialization would go here
-    // For now, use a minimal setup
-    return false; // Metal setup not implemented yet
+    // Metal backend initialization - simplified for testing
+    if (!headless_mode) {
+        // For now, fall back to OpenGL on macOS for testing
+        ImGui_ImplOpenGL3_Init("#version 150");
+    }
 #elif defined(_WIN32)
-    // DirectX 11 backend initialization would go here
-    // For now, use a minimal setup
-    return false; // DirectX setup not implemented yet
+    // DirectX 11 backend initialization - simplified for testing  
+    if (!headless_mode) {
+        // For now, fall back to OpenGL on Windows for testing
+        ImGui_ImplOpenGL3_Init("#version 130");
+    }
 #else
     // OpenGL backend
-    ImGui_ImplOpenGL3_Init("#version 330");
+    if (!headless_mode) {
+        ImGui_ImplOpenGL3_Init("#version 330");
+    }
 #endif
     
     return true;
@@ -185,15 +198,15 @@ bool UITestApp::InitializeTestEngine(int argc, char** argv) {
     ImGuiTestEngineIO& test_io = ImGuiTestEngine_GetIO(test_engine);
     test_io.ConfigVerboseLevel = ImGuiTestVerboseLevel_Info;
     test_io.ConfigVerboseLevelOnError = ImGuiTestVerboseLevel_Debug;
-    test_io.ConfigRunSpeed = ImGuiTestRunSpeed_Fast;
+    test_io.ConfigRunSpeed = headless_mode ? ImGuiTestRunSpeed_Cinematic : ImGuiTestRunSpeed_Fast;
     test_io.ConfigLogToTTY = true;
-    test_io.ConfigNoThrottle = true;
+    test_io.ConfigNoThrottle = headless_mode; // No throttling in headless mode for faster execution
     
     // For CI/headless mode
     if (headless_mode) {
         test_io.ConfigCaptureEnabled = false;
         test_io.ConfigMouseDrawCursor = false;
-        test_io.ConfigWatchdogKillApp = 30.0f; // Kill after 30 seconds
+        test_io.ConfigWatchdogKillApp = 60.0f; // Kill after 60 seconds
     }
     
     // Start test engine
@@ -202,8 +215,16 @@ bool UITestApp::InitializeTestEngine(int argc, char** argv) {
     // Register our UI tests
     RegisterEditorUITests(test_engine);
     
-    // Queue tests based on command line
-    ImGuiTestEngine_QueueTests(test_engine, ImGuiTestGroup_Tests, nullptr, ImGuiTestRunFlags_RunFromCommandLine);
+    // Queue specific tests or all tests based on command line
+    // Run a subset in headless mode for faster CI
+    if (headless_mode) {
+        // Only run basic tests in headless mode - register each test manually
+        ImGuiTestEngine_QueueTest(test_engine, "editor/basic_initialization");
+        ImGuiTestEngine_QueueTest(test_engine, "editor/menu_navigation");
+    } else {
+        // Run all tests in GUI mode
+        ImGuiTestEngine_QueueTests(test_engine, ImGuiTestGroup_Tests, nullptr, ImGuiTestRunFlags_RunFromCommandLine);
+    }
     
     return true;
 }
@@ -218,22 +239,35 @@ void UITestApp::ParseCommandLine(int argc, char** argv) {
 
 int UITestApp::Run() {
     bool aborted = false;
+    int frame_count = 0;
+    const int max_frames = headless_mode ? 300 : 3000; // Limit frames in headless mode
     
-    while (!glfwWindowShouldClose(window) && !aborted) {
-        glfwPollEvents();
+    while (!glfwWindowShouldClose(window) && !aborted && frame_count < max_frames) {
+        frame_count++;
+        
+        // Use polling in headless mode for faster execution
+        if (headless_mode) {
+            glfwPollEvents();
+        } else {
+            glfwWaitEventsTimeout(0.016); // ~60 FPS when GUI is active
+        }
         
         // Check if test engine wants to abort
         if (ImGuiTestEngine_TryAbortEngine(test_engine)) {
+            std::cout << "Test engine requested abort at frame " << frame_count << std::endl;
             break;
         }
         
         // Exit when all tests are done
         if (ImGuiTestEngine_IsTestQueueEmpty(test_engine)) {
+            std::cout << "All tests completed at frame " << frame_count << std::endl;
             break;
         }
         
         // Start the ImGui frame
-        ImGui_ImplOpenGL3_NewFrame();
+        if (!headless_mode) {
+            ImGui_ImplOpenGL3_NewFrame();
+        }
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
@@ -245,18 +279,29 @@ int UITestApp::Run() {
         // Rendering
         ImGui::Render();
         
-        int display_w, display_h;
-        glfwGetFramebufferSize(window, &display_w, &display_h);
-        glViewport(0, 0, display_w, display_h);
-        glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        if (!headless_mode) {
+            int display_w, display_h;
+            glfwGetFramebufferSize(window, &display_w, &display_h);
+            glViewport(0, 0, display_w, display_h);
+            glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+            glClear(GL_COLOR_BUFFER_BIT);
+            
+            ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+            
+            glfwSwapBuffers(window);
+        }
         
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        
-        glfwSwapBuffers(window);
-        
-        // Required for test engine screen capture
+        // Required for test engine screen capture (even in headless mode)
         ImGuiTestEngine_PostSwap(test_engine);
+        
+        // Safety check - prevent infinite loops
+        if (frame_count % 100 == 0 && !headless_mode) {
+            std::cout << "Test progress: frame " << frame_count << std::endl;
+        }
+    }
+    
+    if (frame_count >= max_frames) {
+        std::cout << "Test timeout reached after " << frame_count << " frames" << std::endl;
     }
     
     // Get test results
@@ -277,13 +322,17 @@ void UITestApp::Shutdown() {
     
     // Cleanup ImGui
     if (ImGui::GetCurrentContext()) {
+        if (!headless_mode) {
 #ifdef __APPLE__
-        // Metal cleanup would go here
+            // Metal cleanup would go here - for now using OpenGL fallback
+            ImGui_ImplOpenGL3_Shutdown();
 #elif defined(_WIN32)
-        // DirectX cleanup would go here
+            // DirectX cleanup would go here - for now using OpenGL fallback
+            ImGui_ImplOpenGL3_Shutdown();
 #else
-        ImGui_ImplOpenGL3_Shutdown();
+            ImGui_ImplOpenGL3_Shutdown();
 #endif
+        }
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
     }

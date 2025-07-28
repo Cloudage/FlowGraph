@@ -4,6 +4,7 @@
 #ifdef __APPLE__
     #include <Metal/Metal.h>
     #include <MetalKit/MetalKit.h>
+    #include <QuartzCore/QuartzCore.h>
 #elif defined(_WIN32)
     #include <d3d11.h>
     #include <dxgi1_4.h>
@@ -383,24 +384,19 @@ bool EditorApp::InitializeImGui() {
     m_contentScaleX = xscale;
     m_contentScaleY = yscale;
     
-    // Set font scaling for high-DPI displays
-    if (xscale > 1.0f || yscale > 1.0f) {
-        float scale = std::max(xscale, yscale);
-        io.FontGlobalScale = scale;
-        
-        // Configure display size for proper DPI handling
-        int windowWidth, windowHeight;
-        int framebufferWidth, framebufferHeight;
-        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-        
-        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-        if (windowWidth > 0 && windowHeight > 0) {
-            io.DisplayFramebufferScale = ImVec2(
-                (float)framebufferWidth / windowWidth, 
-                (float)framebufferHeight / windowHeight
-            );
-        }
+    // Don't set FontGlobalScale here - rely on DisplayFramebufferScale instead
+    // Configure display size for proper DPI handling
+    int windowWidth, windowHeight;
+    int framebufferWidth, framebufferHeight;
+    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+    
+    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+    if (windowWidth > 0 && windowHeight > 0) {
+        io.DisplayFramebufferScale = ImVec2(
+            (float)framebufferWidth / windowWidth, 
+            (float)framebufferHeight / windowHeight
+        );
     }
 
     // Setup Dear ImGui style
@@ -427,13 +423,49 @@ bool EditorApp::InitializeImGui() {
 void EditorApp::RenderFrame() {
     // Poll events
     glfwPollEvents();
+    
+    // Update display size and framebuffer scale every frame for accurate rendering
+    ImGuiIO& io = ImGui::GetIO();
+    int windowWidth, windowHeight;
+    int framebufferWidth, framebufferHeight;
+    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+    
+    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+    if (windowWidth > 0 && windowHeight > 0) {
+        io.DisplayFramebufferScale = ImVec2(
+            (float)framebufferWidth / windowWidth, 
+            (float)framebufferHeight / windowHeight
+        );
+    }
+
+#ifdef __APPLE__
+    // Update Metal layer size to match window dimensions
+    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
+    metalLayer.drawableSize = CGSizeMake(framebufferWidth, framebufferHeight);
+    
+    // Get the current drawable
+    id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
+    if (!drawable) {
+        return; // Skip frame if no drawable available
+    }
+#endif
 
     // Start ImGui frame
     ImGui_ImplGlfw_NewFrame();
 
 #ifdef __APPLE__
-    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
-    ImGui_ImplMetal_NewFrame([MTLRenderPassDescriptor renderPassDescriptor]);
+    // Create a proper render pass descriptor with the drawable texture
+    MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
+    renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
+    renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
+    renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.45, 0.55, 0.60, 1.0);
+    renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
+    // Set valid sample count (1 = no multisampling)
+    renderPassDescriptor.renderTargetWidth = drawable.texture.width;
+    renderPassDescriptor.renderTargetHeight = drawable.texture.height;
+    
+    ImGui_ImplMetal_NewFrame(renderPassDescriptor);
 #elif defined(_WIN32)
     ImGui_ImplDX11_NewFrame();
 #else
@@ -475,20 +507,17 @@ void EditorApp::RenderFrame() {
     ImGui::Render();
 
 #ifdef __APPLE__
-    // Metal rendering for macOS
-    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
-    id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
-    
+    // Metal rendering for macOS - use the drawable from earlier
     if (drawable) {
-        // Create render pass descriptor
+        // Create command buffer
+        id<MTLCommandBuffer> commandBuffer = [(id<MTLCommandQueue>)m_metalCommandQueue commandBuffer];
+        
+        // Use the render pass descriptor we created earlier
         MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
         renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
         renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
         renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.45, 0.55, 0.60, 1.0);
         renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
-        
-        // Create command buffer
-        id<MTLCommandBuffer> commandBuffer = [(id<MTLCommandQueue>)m_metalCommandQueue commandBuffer];
         
         // Create render encoder
         id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
@@ -554,28 +583,9 @@ void EditorApp::HandleContentScaleChange(float xscale, float yscale) {
     m_contentScaleX = xscale;
     m_contentScaleY = yscale;
     
-    // Update ImGui font scaling for new DPI
-    ImGuiIO& io = ImGui::GetIO();
-    if (xscale > 1.0f || yscale > 1.0f) {
-        float scale = std::max(xscale, yscale);
-        io.FontGlobalScale = scale;
-    } else {
-        io.FontGlobalScale = 1.0f;
-    }
-    
-    // Update display framebuffer scale
-    int windowWidth, windowHeight;
-    int framebufferWidth, framebufferHeight;
-    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-    
-    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-    if (windowWidth > 0 && windowHeight > 0) {
-        io.DisplayFramebufferScale = ImVec2(
-            (float)framebufferWidth / windowWidth, 
-            (float)framebufferHeight / windowHeight
-        );
-    }
+    // Don't use FontGlobalScale as it can make UI too large
+    // Instead, rely on DisplayFramebufferScale which is updated every frame
+    // and provides proper high-DPI rendering without oversized UI elements
     
     // Request re-render to apply new scaling
     RequestRender();
@@ -626,19 +636,10 @@ void EditorApp::CleanupImGui() {
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
     
-    // Cleanup Metal resources
-    if (m_metalCommandQueue) {
-        [(id)m_metalCommandQueue release];
-        m_metalCommandQueue = nullptr;
-    }
-    if (m_metalDevice) {
-        [(id)m_metalDevice release];
-        m_metalDevice = nullptr;
-    }
-    if (m_metalLayer) {
-        [(id)m_metalLayer release];
-        m_metalLayer = nullptr;
-    }
+    // Cleanup Metal resources - ARC handles memory management automatically
+    m_metalCommandQueue = nullptr;
+    m_metalDevice = nullptr;
+    m_metalLayer = nullptr;
 #elif defined(_WIN32)
     ImGui_ImplDX11_Shutdown();
     

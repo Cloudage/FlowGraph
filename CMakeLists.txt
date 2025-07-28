@@ -8,8 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add options
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
-option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
-option(BUILD_EDITOR "Build FlowGraph editor" OFF)
+option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" OFF)  # Default OFF to reduce clutter
+option(BUILD_EDITOR "Build FlowGraph editor" ON)
 option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 
 # Fetch ExpressionKit using FetchContent
@@ -18,11 +18,10 @@ include(FetchContent)
 FetchContent_Declare(
         ExpressionKit
         GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
-        GIT_TAG        main
-        DOWNLOAD_ONLY  TRUE
+        GIT_TAG        v0.0.2
+        GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(ExpressionKit)
-set(EXPRESSIONKIT_SOURCE_DIR ${expressionkit_SOURCE_DIR})
 
 # Editor dependencies (only fetched when BUILD_EDITOR is enabled)
 if(BUILD_EDITOR)
@@ -33,7 +32,11 @@ if(BUILD_EDITOR)
         GIT_TAG v1.90.1
     )
     
-    # GLFW for cross-platform windowing
+    # GLFW for cross-platform windowing - hide from IDE targets
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -67,34 +70,40 @@ if(BUILD_EDITOR)
     if(UNIX AND NOT APPLE)
         FetchContent_MakeAvailable(glad)
     endif()
+    
+    # Hide dependency targets from IDE to reduce clutter
+    set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    if(TARGET glfw)
+        set_target_properties(glfw PROPERTIES FOLDER "Dependencies")
+    endif()
+    if(TARGET update_mappings)
+        set_target_properties(update_mappings PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
+    if(UNIX AND NOT APPLE AND TARGET glad)
+        set_target_properties(glad PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
+    if(TARGET glad-generate-files)
+        set_target_properties(glad-generate-files PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
 endif()
 
-# Create ExpressionKit interface target
-if(NOT TARGET ExpressionKit::ExpressionKit)
-    add_library(ExpressionKit INTERFACE)
-    add_library(ExpressionKit::ExpressionKit ALIAS ExpressionKit)
-    target_include_directories(ExpressionKit INTERFACE 
-        $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
-    )
-    target_compile_features(ExpressionKit INTERFACE cxx_std_17)
-endif()
+# ExpressionKit is now available as ExpressionKit target from FetchContent_MakeAvailable
 
 # Header-only library
 add_library(FlowGraph INTERFACE)
 add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
 
-# Include directories
+# Group targets in IDE
+set_target_properties(FlowGraph PROPERTIES FOLDER "Core")
+
+# Include directories  
 target_include_directories(FlowGraph INTERFACE 
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/Core/include>
-    $<BUILD_INTERFACE:${EXPRESSIONKIT_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 
-# Temporary workaround: Don't link to ExpressionKit target since we're bundling the header.
-# This is due to upstream issues with ExpressionKit (missing inline keyword and non-English error messages).
-# Once these issues are resolved, uncomment the line below to link to ExpressionKit target.
-# target_link_libraries(FlowGraph INTERFACE ExpressionKit::ExpressionKit)
+# Link to ExpressionKit target  
+target_link_libraries(FlowGraph INTERFACE ExpressionKit)
 
 # Compiler requirements
 target_compile_features(FlowGraph INTERFACE cxx_std_17)
@@ -118,7 +127,6 @@ endif()
 # Package generation target
 add_custom_target(create_package
     COMMAND ${CMAKE_COMMAND} 
-        -DEXPRESSIONKIT_SOURCE_DIR=${EXPRESSIONKIT_SOURCE_DIR}
         -DFlowGraph_VERSION=${PROJECT_VERSION}
         -DFLOWGRAPH_SOURCE_DIR=${CMAKE_SOURCE_DIR}
         -DPACKAGE_OUTPUT_DIR=${CMAKE_BINARY_DIR}
@@ -130,10 +138,7 @@ add_custom_target(create_package
 # Installation
 include(GNUInstallDirs)
 
-# Install ExpressionKit header when we install FlowGraph
-install(FILES ${EXPRESSIONKIT_SOURCE_DIR}/ExpressionKit.hpp 
-    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
-)
+# ExpressionKit will be handled by its own installation when using find_package
 
 install(TARGETS FlowGraph
     EXPORT FlowGraphTargets

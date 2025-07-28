@@ -74,12 +74,12 @@ TEST_CASE("Value boolean conversion", "[types][value]") {
         REQUIRE(createValue(true).asBoolean() == true);
         REQUIRE(createValue(false).asBoolean() == false);
         
-        // Strings: empty is false, non-empty is true
+        // Strings: empty is false, special values like "0", "false" are false, others are true
         REQUIRE(createValue("").asBoolean() == false);
         REQUIRE(createValue("hello").asBoolean() == true);
         REQUIRE(createValue(" ").asBoolean() == true); // whitespace is considered non-empty
-        REQUIRE(createValue("0").asBoolean() == true); // string "0" is non-empty, so true
-        REQUIRE(createValue("false").asBoolean() == true); // string "false" is non-empty, so true
+        REQUIRE(createValue("0").asBoolean() == false); // string "0" is false, like number 0
+        REQUIRE(createValue("false").asBoolean() == false); // string "false" is false
     }
 }
 
