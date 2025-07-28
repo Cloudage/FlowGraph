@@ -5,7 +5,10 @@
 struct GLFWwindow;
 
 #ifdef _WIN32
-#include <vulkan/vulkan.h>
+#include <d3d11.h>
+#include <dxgi1_4.h>
+#include <wrl/client.h>
+using Microsoft::WRL::ComPtr;
 #endif
 
 namespace FlowGraph {
@@ -90,16 +93,11 @@ private:
     bool m_shouldRender = true;
     
 #ifdef _WIN32
-    // Vulkan-specific members for Windows
-    VkInstance m_vkInstance = VK_NULL_HANDLE;
-    VkPhysicalDevice m_vkPhysicalDevice = VK_NULL_HANDLE;
-    VkDevice m_vkDevice = VK_NULL_HANDLE;
-    VkQueue m_vkQueue = VK_NULL_HANDLE;
-    VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
-    VkSwapchainKHR m_vkSwapchain = VK_NULL_HANDLE;
-    VkRenderPass m_vkRenderPass = VK_NULL_HANDLE;
-    VkDescriptorPool m_vkDescriptorPool = VK_NULL_HANDLE;
-    uint32_t m_vkQueueFamily = 0;
+    // DirectX 11-specific members for Windows
+    ComPtr<ID3D11Device> m_d3dDevice;
+    ComPtr<ID3D11DeviceContext> m_d3dContext;
+    ComPtr<IDXGISwapChain1> m_swapChain;
+    ComPtr<ID3D11RenderTargetView> m_renderTargetView;
 #endif
     
     // Window properties

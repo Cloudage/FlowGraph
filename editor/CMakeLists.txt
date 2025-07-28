@@ -16,12 +16,11 @@ if(APPLE)
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm)
     set(PLATFORM_LIBS "-framework Metal -framework MetalKit -framework Cocoa -framework IOKit -framework CoreVideo")
 elseif(WIN32)
-    # Vulkan backend for Windows
-    list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+    # DirectX 11 backend for Windows
+    list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp)
     
-    # Find Vulkan
-    find_package(Vulkan REQUIRED)
-    set(PLATFORM_LIBS Vulkan::Vulkan)
+    # DirectX 11 libraries
+    set(PLATFORM_LIBS d3d11 dxgi dxguid)
 else()
     # OpenGL 3.3 backend for Linux
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
@@ -88,8 +87,8 @@ if(APPLE)
         COMPILE_FLAGS "-fobjc-arc"
     )
 elseif(WIN32)
-    # Vulkan configuration for Windows
-    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
+    # DirectX 11 configuration for Windows
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_DX11_CPP)
 else()
     # OpenGL configuration for Linux
     target_include_directories(imgui PUBLIC ${glad_SOURCE_DIR}/include)

@@ -5,8 +5,12 @@
     #include <Metal/Metal.h>
     #include <MetalKit/MetalKit.h>
 #elif defined(_WIN32)
-    #include <vulkan/vulkan.h>
-    #define GLFW_INCLUDE_VULKAN
+    #include <d3d11.h>
+    #include <dxgi1_4.h>
+    #include <wrl/client.h>
+    #define GLFW_EXPOSE_NATIVE_WIN32
+    #include <GLFW/glfw3native.h>
+    using Microsoft::WRL::ComPtr;
 #else
     #include <glad/glad.h>
     #define GLFW_INCLUDE_NONE
@@ -20,7 +24,7 @@
 #ifdef __APPLE__
     #include <imgui_impl_metal.h>
 #elif defined(_WIN32)
-    #include <imgui_impl_vulkan.h>
+    #include <imgui_impl_dx11.h>
 #else
     #include <imgui_impl_opengl3.h>
 #endif
@@ -123,7 +127,7 @@ int EditorApp::Run() {
 #ifdef __APPLE__
               << "macOS (Metal)"
 #elif defined(_WIN32)
-              << "Windows (Vulkan)"
+              << "Windows (DirectX 11)"
 #else
               << "Linux (OpenGL 3.3)"
 #endif
@@ -176,8 +180,10 @@ bool EditorApp::InitializeWindow() {
     // Configure GLFW window hints based on platform
 #ifdef __APPLE__
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+#elif defined(_WIN32)
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 #else
-    // Use OpenGL 3.3 for Windows and Linux
+    // Use OpenGL 3.3 for Linux
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -202,8 +208,8 @@ bool EditorApp::InitializeWindow() {
     glfwSetKeyCallback(m_window, KeyCallback);
     glfwSetWindowFocusCallback(m_window, WindowFocusCallback);
 
-#ifndef __APPLE__
-    // Make OpenGL context current (for Windows and Linux)
+#if !defined(__APPLE__) && !defined(_WIN32)
+    // Make OpenGL context current (for Linux only)
     glfwMakeContextCurrent(m_window);
     glfwSwapInterval(1); // Enable vsync
 #endif
@@ -216,93 +222,86 @@ bool EditorApp::SetupRenderingBackend() {
     // Metal setup would go here
     return true;
 #elif defined(_WIN32)
-    // Initialize Vulkan for Windows
-    VkApplicationInfo appInfo{};
-    appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    appInfo.pApplicationName = "FlowGraph Editor";
-    appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.pEngineName = "FlowGraph";
-    appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-    appInfo.apiVersion = VK_API_VERSION_1_0;
-
-    VkInstanceCreateInfo createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    createInfo.pApplicationInfo = &appInfo;
-
-    // Get required extensions from GLFW
-    uint32_t glfwExtensionCount = 0;
-    const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-    createInfo.enabledExtensionCount = glfwExtensionCount;
-    createInfo.ppEnabledExtensionNames = glfwExtensions;
-
-    // Create Vulkan instance
-    if (vkCreateInstance(&createInfo, nullptr, &m_vkInstance) != VK_SUCCESS) {
-        std::cerr << "Failed to create Vulkan instance" << std::endl;
+    // Initialize DirectX 11 for Windows
+    HWND hwnd = glfwGetWin32Window(m_window);
+    
+    // Get window dimensions
+    int width, height;
+    glfwGetFramebufferSize(m_window, &width, &height);
+    
+    // Create DXGI factory
+    ComPtr<IDXGIFactory2> dxgiFactory;
+    HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create DXGI factory" << std::endl;
         return false;
     }
-
-    // Create window surface
-    if (glfwCreateWindowSurface(m_vkInstance, m_window, nullptr, &m_vkSurface) != VK_SUCCESS) {
-        std::cerr << "Failed to create window surface" << std::endl;
+    
+    // Create D3D11 device and context
+    D3D_FEATURE_LEVEL featureLevel;
+    D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
+    
+    hr = D3D11CreateDevice(
+        nullptr,                    // Use default adapter
+        D3D_DRIVER_TYPE_HARDWARE,
+        nullptr,                    // No software module
+        D3D11_CREATE_DEVICE_DEBUG,  // Enable debug layer in debug builds
+        featureLevels,
+        ARRAYSIZE(featureLevels),
+        D3D11_SDK_VERSION,
+        &m_d3dDevice,
+        &featureLevel,
+        &m_d3dContext
+    );
+    
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create D3D11 device" << std::endl;
         return false;
     }
-
-    // Find physical device (simplified - use first suitable device)
-    uint32_t deviceCount = 0;
-    vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, nullptr);
-    if (deviceCount == 0) {
-        std::cerr << "Failed to find GPUs with Vulkan support" << std::endl;
+    
+    // Create swap chain
+    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
+    swapChainDesc.Width = width;
+    swapChainDesc.Height = height;
+    swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    swapChainDesc.SampleDesc.Count = 1;
+    swapChainDesc.SampleDesc.Quality = 0;
+    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    swapChainDesc.BufferCount = 2;
+    swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
+    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
+    swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
+    swapChainDesc.Flags = 0;
+    
+    hr = dxgiFactory->CreateSwapChainForHwnd(
+        m_d3dDevice.Get(),
+        hwnd,
+        &swapChainDesc,
+        nullptr,
+        nullptr,
+        &m_swapChain
+    );
+    
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create swap chain" << std::endl;
         return false;
     }
-
-    std::vector<VkPhysicalDevice> devices(deviceCount);
-    vkEnumeratePhysicalDevices(m_vkInstance, &deviceCount, devices.data());
-    m_vkPhysicalDevice = devices[0]; // Use first device for simplicity
-
-    // Find queue family
-    uint32_t queueFamilyCount = 0;
-    vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &queueFamilyCount, nullptr);
-    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
-    vkGetPhysicalDeviceQueueFamilyProperties(m_vkPhysicalDevice, &queueFamilyCount, queueFamilies.data());
-
-    for (uint32_t i = 0; i < queueFamilyCount; i++) {
-        if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(m_vkPhysicalDevice, i, m_vkSurface, &presentSupport);
-            if (presentSupport) {
-                m_vkQueueFamily = i;
-                break;
-            }
-        }
-    }
-
-    // Create logical device
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = m_vkQueueFamily;
-    queueCreateInfo.queueCount = 1;
-    float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
-
-    VkPhysicalDeviceFeatures deviceFeatures{};
-    VkDeviceCreateInfo deviceCreateInfo{};
-    deviceCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    deviceCreateInfo.pQueueCreateInfos = &queueCreateInfo;
-    deviceCreateInfo.queueCreateInfoCount = 1;
-    deviceCreateInfo.pEnabledFeatures = &deviceFeatures;
-
-    const char* deviceExtensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-    deviceCreateInfo.enabledExtensionCount = 1;
-    deviceCreateInfo.ppEnabledExtensionNames = deviceExtensions;
-
-    if (vkCreateDevice(m_vkPhysicalDevice, &deviceCreateInfo, nullptr, &m_vkDevice) != VK_SUCCESS) {
-        std::cerr << "Failed to create logical device" << std::endl;
+    
+    // Create render target view
+    ComPtr<ID3D11Texture2D> backBuffer;
+    hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
+    if (FAILED(hr)) {
+        std::cerr << "Failed to get back buffer" << std::endl;
         return false;
     }
-
-    vkGetDeviceQueue(m_vkDevice, m_vkQueueFamily, 0, &m_vkQueue);
-
-    std::cout << "Vulkan initialized successfully" << std::endl;
+    
+    hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create render target view" << std::endl;
+        return false;
+    }
+    
+    std::cout << "DirectX 11 initialized successfully" << std::endl;
     return true;
 #else
     // Initialize GLAD for OpenGL (Linux)
@@ -336,94 +335,8 @@ bool EditorApp::InitializeImGui() {
     // Metal backend
     ImGui_ImplMetal_Init(MTLCreateSystemDefaultDevice());
 #elif defined(_WIN32)
-    // Vulkan backend for Windows
-    
-    // Create descriptor pool for ImGui
-    VkDescriptorPoolSize pool_sizes[] = {
-        { VK_DESCRIPTOR_TYPE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000 },
-        { VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000 },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000 },
-        { VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000 }
-    };
-    
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-    pool_info.pPoolSizes = pool_sizes;
-    
-    if (vkCreateDescriptorPool(m_vkDevice, &pool_info, nullptr, &m_vkDescriptorPool) != VK_SUCCESS) {
-        std::cerr << "Failed to create descriptor pool" << std::endl;
-        return false;
-    }
-
-    // Initialize ImGui Vulkan
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = m_vkInstance;
-    init_info.PhysicalDevice = m_vkPhysicalDevice;
-    init_info.Device = m_vkDevice;
-    init_info.QueueFamily = m_vkQueueFamily;
-    init_info.Queue = m_vkQueue;
-    init_info.PipelineCache = VK_NULL_HANDLE;
-    init_info.DescriptorPool = m_vkDescriptorPool;
-    init_info.Allocator = nullptr;
-    init_info.MinImageCount = 2;
-    init_info.ImageCount = 2;
-    init_info.CheckVkResultFn = nullptr;
-    
-    // Create a minimal render pass for ImGui
-    VkAttachmentDescription attachment = {};
-    attachment.format = VK_FORMAT_B8G8R8A8_UNORM; // Common swapchain format
-    attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    attachment.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference color_attachment = {};
-    color_attachment.attachment = 0;
-    color_attachment.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass = {};
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.colorAttachmentCount = 1;
-    subpass.pColorAttachments = &color_attachment;
-
-    VkSubpassDependency dependency = {};
-    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dependency.dstSubpass = 0;
-    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dependency.srcAccessMask = 0;
-    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo render_pass_info = {};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_info.attachmentCount = 1;
-    render_pass_info.pAttachments = &attachment;
-    render_pass_info.subpassCount = 1;
-    render_pass_info.pSubpasses = &subpass;
-    render_pass_info.dependencyCount = 1;
-    render_pass_info.pDependencies = &dependency;
-
-    if (vkCreateRenderPass(m_vkDevice, &render_pass_info, nullptr, &m_vkRenderPass) != VK_SUCCESS) {
-        std::cerr << "Failed to create render pass" << std::endl;
-        return false;
-    }
-    
-    init_info.RenderPass = m_vkRenderPass;
-    
-    ImGui_ImplVulkan_Init(&init_info, m_vkRenderPass);
+    // DirectX 11 backend for Windows
+    ImGui_ImplDX11_Init(m_d3dDevice.Get(), m_d3dContext.Get());
 #else
     // OpenGL 3.3 backend for Linux
     const char* glsl_version = "#version 330";
@@ -443,7 +356,7 @@ void EditorApp::RenderFrame() {
 #ifdef __APPLE__
     ImGui_ImplMetal_NewFrame(nullptr);
 #elif defined(_WIN32)
-    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplDX11_NewFrame();
 #else
     ImGui_ImplOpenGL3_NewFrame();
 #endif
@@ -463,7 +376,7 @@ void EditorApp::RenderFrame() {
 #ifdef __APPLE__
                 "macOS (Metal)"
 #elif defined(_WIN32)
-                "Windows (Vulkan)"
+                "Windows (DirectX 11)"
 #else
                 "Linux (OpenGL 3.3)"
 #endif
@@ -483,13 +396,14 @@ void EditorApp::RenderFrame() {
     // Metal rendering would go here
     // For now, just clear
 #elif defined(_WIN32)
-    // Vulkan rendering for Windows
-    // For this basic implementation, we'll just render ImGui
-    // In a full implementation, you'd manage swapchain, command buffers, etc.
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), VK_NULL_HANDLE);
+    // DirectX 11 rendering for Windows
+    const float clearColor[4] = { 0.45f, 0.55f, 0.60f, 1.00f };
+    m_d3dContext->OMSetRenderTargets(1, m_renderTargetView.GetAddressOf(), nullptr);
+    m_d3dContext->ClearRenderTargetView(m_renderTargetView.Get(), clearColor);
+    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
     
     // Present the frame
-    glfwSwapBuffers(m_window);
+    m_swapChain->Present(1, 0); // VSync enabled
 #else
     // OpenGL rendering for Linux
     int display_w, display_h;
@@ -517,29 +431,13 @@ void EditorApp::CleanupImGui() {
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
 #elif defined(_WIN32)
-    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplDX11_Shutdown();
     
-    // Cleanup Vulkan resources
-    if (m_vkDescriptorPool != VK_NULL_HANDLE) {
-        vkDestroyDescriptorPool(m_vkDevice, m_vkDescriptorPool, nullptr);
-        m_vkDescriptorPool = VK_NULL_HANDLE;
-    }
-    if (m_vkRenderPass != VK_NULL_HANDLE) {
-        vkDestroyRenderPass(m_vkDevice, m_vkRenderPass, nullptr);
-        m_vkRenderPass = VK_NULL_HANDLE;
-    }
-    if (m_vkDevice != VK_NULL_HANDLE) {
-        vkDestroyDevice(m_vkDevice, nullptr);
-        m_vkDevice = VK_NULL_HANDLE;
-    }
-    if (m_vkSurface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(m_vkInstance, m_vkSurface, nullptr);
-        m_vkSurface = VK_NULL_HANDLE;
-    }
-    if (m_vkInstance != VK_NULL_HANDLE) {
-        vkDestroyInstance(m_vkInstance, nullptr);
-        m_vkInstance = VK_NULL_HANDLE;
-    }
+    // Cleanup DirectX resources
+    m_renderTargetView.Reset();
+    m_swapChain.Reset();
+    m_d3dContext.Reset();
+    m_d3dDevice.Reset();
 #else
     ImGui_ImplOpenGL3_Shutdown();
 #endif
