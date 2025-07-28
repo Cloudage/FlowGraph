@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <functional>
+#include <stdexcept>
 
 namespace flowgraph::layout {
 

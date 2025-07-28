@@ -3,6 +3,7 @@
 #include "LayoutTypes.hpp"
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 namespace flowgraph::layout {
 

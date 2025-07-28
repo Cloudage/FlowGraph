@@ -5,6 +5,8 @@
 #include <cmath>
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <limits>
 
 namespace flowgraph::layout {
 
