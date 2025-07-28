@@ -83,6 +83,14 @@ namespace {
             app->RequestRender();
         }
     }
+    
+    // Window size callback to handle resizing
+    void WindowSizeCallback(GLFWwindow* window, int width, int height) {
+        EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+        if (app && width > 0 && height > 0) {
+            app->HandleWindowResize(width, height);
+        }
+    }
 }
 
 EditorApp::EditorApp() = default;
@@ -210,6 +218,7 @@ bool EditorApp::InitializeWindow() {
     glfwSetMouseButtonCallback(m_window, MouseButtonCallback);
     glfwSetKeyCallback(m_window, KeyCallback);
     glfwSetWindowFocusCallback(m_window, WindowFocusCallback);
+    glfwSetWindowSizeCallback(m_window, WindowSizeCallback);
 
 #if !defined(__APPLE__) && !defined(_WIN32)
     // Make OpenGL context current (for Linux only)
@@ -429,6 +438,62 @@ void EditorApp::RequestRender() {
     // Wake up the event loop
     glfwPostEmptyEvent();
 }
+
+void EditorApp::HandleWindowResize(int width, int height) {
+    // Request immediate re-render
+    m_shouldRender = true;
+    
+#ifdef _WIN32
+    // Recreate DirectX render target with new size
+    if (m_d3dDevice && m_swapChain) {
+        RecreateDirectXRenderTarget(width, height);
+    }
+#endif
+    
+    // Wake up the event loop for immediate re-render
+    glfwPostEmptyEvent();
+}
+
+#ifdef _WIN32
+bool EditorApp::RecreateDirectXRenderTarget(int width, int height) {
+    if (!m_swapChain || !m_d3dDevice) {
+        return false;
+    }
+    
+    // Release existing render target view
+    m_renderTargetView.Reset();
+    
+    // Resize the swap chain buffers
+    HRESULT hr = m_swapChain->ResizeBuffers(
+        0,                              // Keep existing buffer count
+        width,                          // New width
+        height,                         // New height  
+        DXGI_FORMAT_UNKNOWN,           // Keep existing format
+        0                              // No flags
+    );
+    
+    if (FAILED(hr)) {
+        std::cerr << "Failed to resize swap chain buffers" << std::endl;
+        return false;
+    }
+    
+    // Recreate render target view with new buffer
+    ComPtr<ID3D11Texture2D> backBuffer;
+    hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
+    if (FAILED(hr)) {
+        std::cerr << "Failed to get back buffer after resize" << std::endl;
+        return false;
+    }
+    
+    hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
+    if (FAILED(hr)) {
+        std::cerr << "Failed to create render target view after resize" << std::endl;
+        return false;
+    }
+    
+    return true;
+}
+#endif
 
 void EditorApp::CleanupImGui() {
 #ifdef __APPLE__

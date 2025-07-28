@@ -47,6 +47,13 @@ public:
      */
     void RequestRender();
 
+    /**
+     * @brief Handle window resize events
+     * @param width New window width
+     * @param height New window height
+     */
+    void HandleWindowResize(int width, int height);
+
 private:
     /**
      * @brief Initialize GLFW and create window
@@ -86,6 +93,16 @@ private:
      * @brief Cleanup GLFW resources
      */
     void CleanupWindow();
+
+#ifdef _WIN32
+    /**
+     * @brief Recreate DirectX render target for window resize (Windows only)
+     * @param width New width
+     * @param height New height
+     * @return true if successful, false otherwise
+     */
+    bool RecreateDirectXRenderTarget(int width, int height);
+#endif
 
 private:
     GLFWwindow* m_window = nullptr;
