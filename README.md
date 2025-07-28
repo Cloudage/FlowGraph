@@ -179,7 +179,7 @@ Examples/                  # Usage examples
 
 ## Development
 
-This project follows test-driven development. See [DEV_PHASE_1.md](DEV_PHASE_1.md) for the development roadmap.
+This project follows test-driven development. See [DEV_PHASE_1.md](DEV_PHASE_1.md) and [DEV_PHASE_2.md](DEV_PHASE_2.md) for the development status.
 
 ## License
 
