@@ -436,8 +436,7 @@ void EditorApp::RenderFrame() {
     ImGui::Render();
 
 #ifdef __APPLE__
-    // Metal rendering for macOS
-    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
+    // Metal rendering for macOS - reuse metalLayer variable from above
     id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
     
     if (drawable) {
@@ -556,19 +555,10 @@ void EditorApp::CleanupImGui() {
 #ifdef __APPLE__
     ImGui_ImplMetal_Shutdown();
     
-    // Cleanup Metal resources
-    if (m_metalCommandQueue) {
-        [(id)m_metalCommandQueue release];
-        m_metalCommandQueue = nullptr;
-    }
-    if (m_metalDevice) {
-        [(id)m_metalDevice release];
-        m_metalDevice = nullptr;
-    }
-    if (m_metalLayer) {
-        [(id)m_metalLayer release];
-        m_metalLayer = nullptr;
-    }
+    // Cleanup Metal resources - ARC handles memory management automatically
+    m_metalCommandQueue = nullptr;
+    m_metalDevice = nullptr;
+    m_metalLayer = nullptr;
 #elif defined(_WIN32)
     ImGui_ImplDX11_Shutdown();
     
