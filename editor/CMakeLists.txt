@@ -14,7 +14,7 @@ set(IMGUI_SOURCES
 if(APPLE)
     # Metal backend for macOS
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm)
-    set(PLATFORM_LIBS "-framework Metal -framework MetalKit -framework Cocoa -framework IOKit -framework CoreVideo")
+    set(PLATFORM_LIBS "-framework Metal -framework MetalKit -framework QuartzCore -framework Cocoa -framework IOKit -framework CoreVideo")
 elseif(WIN32)
     # DirectX 11 backend for Windows
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_dx11.cpp)

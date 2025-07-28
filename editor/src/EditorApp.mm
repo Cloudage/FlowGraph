@@ -4,6 +4,7 @@
 #ifdef __APPLE__
     #include <Metal/Metal.h>
     #include <MetalKit/MetalKit.h>
+    #include <QuartzCore/QuartzCore.h>
 #elif defined(_WIN32)
     #include <d3d11.h>
     #include <dxgi1_4.h>
