@@ -92,12 +92,12 @@ elseif(UNIX AND NOT APPLE)
 endif()
 
 # FlowGraph Editor executable
-add_executable(FlowGraphEditor
+add_executable(FlowGraph_Editor_App
     src/main.cpp
     src/EditorApp.cpp
 )
 
-target_include_directories(FlowGraphEditor PRIVATE
+target_include_directories(FlowGraph_Editor_App PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
@@ -109,14 +109,14 @@ set(EDITOR_LIBS
     ${PLATFORM_LIBS}
 )
 
-target_link_libraries(FlowGraphEditor PRIVATE ${EDITOR_LIBS})
+target_link_libraries(FlowGraph_Editor_App PRIVATE ${EDITOR_LIBS})
 
 # Set C++ standard
-target_compile_features(FlowGraphEditor PRIVATE cxx_std_17)
+target_compile_features(FlowGraph_Editor_App PRIVATE cxx_std_17)
 
 # Platform-specific settings
 if(APPLE)
-    set_target_properties(FlowGraphEditor PROPERTIES
+    set_target_properties(FlowGraph_Editor_App PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
     )
@@ -125,18 +125,18 @@ endif()
 # Add UI tests if enabled
 if(BUILD_EDITOR_TESTS)
     # FlowGraph Editor UI Tests executable
-    add_executable(FlowGraphEditorTests
+    add_executable(FlowGraph_Editor_UI_Tests
         tests/test_main.cpp
         tests/test_editor_ui.cpp
         src/EditorApp.cpp  # Re-use editor app code
     )
     
-    target_include_directories(FlowGraphEditorTests PRIVATE
+    target_include_directories(FlowGraph_Editor_UI_Tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
         ${CMAKE_CURRENT_SOURCE_DIR}/tests
     )
     
-    target_link_libraries(FlowGraphEditorTests PRIVATE
+    target_link_libraries(FlowGraph_Editor_UI_Tests PRIVATE
         FlowGraph::FlowGraph
         imgui_test_engine  # This brings in imgui_with_tests
         glfw
@@ -144,23 +144,43 @@ if(BUILD_EDITOR_TESTS)
     )
     
     # Enable test engine for UI tests
-    target_compile_definitions(FlowGraphEditorTests PRIVATE
+    target_compile_definitions(FlowGraph_Editor_UI_Tests PRIVATE
         IMGUI_USER_CONFIG="${CMAKE_CURRENT_SOURCE_DIR}/imconfig.h"
     )
     
-    target_compile_features(FlowGraphEditorTests PRIVATE cxx_std_17)
+    target_compile_features(FlowGraph_Editor_UI_Tests PRIVATE cxx_std_17)
     
     # Platform-specific settings for UI tests
     if(APPLE)
-        set_target_properties(FlowGraphEditorTests PROPERTIES
+        set_target_properties(FlowGraph_Editor_UI_Tests PROPERTIES
             MACOSX_BUNDLE TRUE
         )
     endif()
     
     # Register UI tests with CTest
-    add_test(NAME editor_ui_tests COMMAND FlowGraphEditorTests -nogui -nopause)
+    add_test(NAME editor_ui_tests COMMAND FlowGraph_Editor_UI_Tests -nogui -nopause)
     set_tests_properties(editor_ui_tests PROPERTIES
         TIMEOUT 60
         LABELS "ui;editor"
+    )
+    
+    # Simple UI test without ImGui Test Engine (more reliable for CI)
+    add_executable(FlowGraph_Simple_UI_Test
+        tests/simple_ui_test.cpp
+    )
+    
+    target_link_libraries(FlowGraph_Simple_UI_Test PRIVATE
+        imgui
+        glfw
+        ${PLATFORM_LIBS}
+    )
+    
+    target_compile_features(FlowGraph_Simple_UI_Test PRIVATE cxx_std_17)
+    
+    # Register simple UI test with CTest (primary test for CI)
+    add_test(NAME simple_ui_test COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/FlowGraph_Simple_UI_Test)
+    set_tests_properties(simple_ui_test PROPERTIES
+        TIMEOUT 30
+        LABELS "ui;editor;simple"
     )
 endif()
