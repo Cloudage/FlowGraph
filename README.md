@@ -153,13 +153,24 @@ For detailed integration examples, see [examples/integration/](examples/integrat
 ## Building and Testing
 
 ```bash
-# Configure and build
+# Configure and build core library
 cmake -B build
 cmake --build build
 
 # Run tests
 ctest --test-dir build
+
+# Build with editor (optional)
+cmake -B build -DBUILD_EDITOR=ON
+cmake --build build
+./build/editor/FlowGraphEditor
 ```
+
+### Build Options
+
+- `FLOWGRAPH_BUILD_TESTS` (default: ON) - Build unit tests
+- `FLOWGRAPH_BUILD_EXAMPLES` (default: ON) - Build example programs
+- `BUILD_EDITOR` (default: OFF) - Build FlowGraph Editor with ImGui
 
 ## Project Structure
 

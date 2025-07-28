@@ -9,6 +9,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Add options
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
 option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
+option(BUILD_EDITOR "Build FlowGraph editor" OFF)
+option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 
 # Fetch ExpressionKit using FetchContent
 include(FetchContent)
@@ -34,6 +36,51 @@ include(FetchContent)
 
 # For now, use local ExpressionKit.hpp until upstream issues are resolved
 set(EXPRESSIONKIT_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
+
+# Editor dependencies (only fetched when BUILD_EDITOR is enabled)
+if(BUILD_EDITOR)
+    # Dear ImGui
+    FetchContent_Declare(
+        imgui
+        GIT_REPOSITORY https://github.com/ocornut/imgui.git
+        GIT_TAG v1.90.1
+    )
+    
+    # GLFW for cross-platform windowing
+    FetchContent_Declare(
+        glfw
+        GIT_REPOSITORY https://github.com/glfw/glfw.git
+        GIT_TAG 3.3.8
+    )
+    
+    # Platform-specific graphics dependencies
+    if(UNIX AND NOT APPLE)
+        # OpenGL loader for Linux
+        FetchContent_Declare(
+            glad
+            GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+            GIT_TAG v0.1.36
+        )
+    endif()
+    
+    # ImGui Test Engine (for UI testing) - only when UI tests are enabled
+    if(BUILD_EDITOR_TESTS)
+        FetchContent_Declare(
+            imgui_test_engine
+            GIT_REPOSITORY https://github.com/ocornut/imgui_test_engine.git
+            GIT_TAG main
+        )
+    endif()
+    
+    # Make dependencies available
+    FetchContent_MakeAvailable(imgui glfw)
+    if(BUILD_EDITOR_TESTS)
+        FetchContent_MakeAvailable(imgui_test_engine)
+    endif()
+    if(UNIX AND NOT APPLE)
+        FetchContent_MakeAvailable(glad)
+    endif()
+endif()
 
 # Create ExpressionKit interface target
 if(NOT TARGET ExpressionKit::ExpressionKit)
@@ -74,6 +121,11 @@ endif()
 # Add examples if requested
 if(FLOWGRAPH_BUILD_EXAMPLES)
     add_subdirectory(examples)
+endif()
+
+# Add editor if requested
+if(BUILD_EDITOR)
+    add_subdirectory(editor)
 endif()
 
 # Package generation target
