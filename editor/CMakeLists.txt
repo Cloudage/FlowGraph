@@ -15,8 +15,15 @@ if(APPLE)
     # Metal backend for macOS
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_metal.mm)
     set(PLATFORM_LIBS "-framework Metal -framework MetalKit -framework Cocoa -framework IOKit -framework CoreVideo")
+elseif(WIN32)
+    # Vulkan backend for Windows
+    list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_vulkan.cpp)
+    
+    # Find Vulkan
+    find_package(Vulkan REQUIRED)
+    set(PLATFORM_LIBS Vulkan::Vulkan)
 else()
-    # OpenGL 3.3 backend for Windows and Linux (more reliable than DirectX)
+    # OpenGL 3.3 backend for Linux
     list(APPEND IMGUI_SOURCES ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp)
     
     # Use existing glad target if available, otherwise create one
@@ -27,16 +34,7 @@ else()
     
     set(PLATFORM_LIBS glad)
     find_package(OpenGL REQUIRED)
-    list(APPEND PLATFORM_LIBS OpenGL::GL)
-    
-    # Add platform-specific libraries
-    if(WIN32)
-        # Windows-specific libraries for OpenGL
-        list(APPEND PLATFORM_LIBS opengl32)
-    else()
-        # Linux-specific libraries  
-        list(APPEND PLATFORM_LIBS ${CMAKE_DL_LIBS})
-    endif()
+    list(APPEND PLATFORM_LIBS OpenGL::GL ${CMAKE_DL_LIBS})
 endif()
 
 # Create ImGui library
@@ -89,8 +87,11 @@ if(APPLE)
     set_target_properties(imgui PROPERTIES 
         COMPILE_FLAGS "-fobjc-arc"
     )
+elseif(WIN32)
+    # Vulkan configuration for Windows
+    target_compile_definitions(imgui PUBLIC IMGUI_IMPL_VULKAN_NO_PROTOTYPES)
 else()
-    # OpenGL configuration for Windows and Linux
+    # OpenGL configuration for Linux
     target_include_directories(imgui PUBLIC ${glad_SOURCE_DIR}/include)
     target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 endif()
@@ -100,6 +101,9 @@ add_executable(FlowGraph_Editor_App
     src/main.cpp
     src/EditorApp.cpp
 )
+
+# Group in IDE
+set_target_properties(FlowGraph_Editor_App PROPERTIES FOLDER "Editor")
 
 target_include_directories(FlowGraph_Editor_App PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src

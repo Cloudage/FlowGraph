@@ -4,6 +4,10 @@
 
 struct GLFWwindow;
 
+#ifdef _WIN32
+#include <vulkan/vulkan.h>
+#endif
+
 namespace FlowGraph {
 namespace Editor {
 
@@ -84,6 +88,19 @@ private:
     GLFWwindow* m_window = nullptr;
     bool m_initialized = false;
     bool m_shouldRender = true;
+    
+#ifdef _WIN32
+    // Vulkan-specific members for Windows
+    VkInstance m_vkInstance = VK_NULL_HANDLE;
+    VkPhysicalDevice m_vkPhysicalDevice = VK_NULL_HANDLE;
+    VkDevice m_vkDevice = VK_NULL_HANDLE;
+    VkQueue m_vkQueue = VK_NULL_HANDLE;
+    VkSurfaceKHR m_vkSurface = VK_NULL_HANDLE;
+    VkSwapchainKHR m_vkSwapchain = VK_NULL_HANDLE;
+    VkRenderPass m_vkRenderPass = VK_NULL_HANDLE;
+    VkDescriptorPool m_vkDescriptorPool = VK_NULL_HANDLE;
+    uint32_t m_vkQueueFamily = 0;
+#endif
     
     // Window properties
     static constexpr int WINDOW_WIDTH = 1280;

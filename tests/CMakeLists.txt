@@ -1,13 +1,19 @@
 cmake_minimum_required(VERSION 3.15)
 
-# Fetch Catch2
+# Fetch Catch2 - hide from IDE targets
 include(FetchContent)
+set(CATCH_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+set(CATCH_INSTALL_HELPERS OFF CACHE BOOL "" FORCE)
 FetchContent_Declare(
     Catch2
     GIT_REPOSITORY https://github.com/catchorg/Catch2.git
     GIT_TAG v3.4.0
 )
 FetchContent_MakeAvailable(Catch2)
+
+# Hide Catch2 targets from IDE to reduce clutter
+set_target_properties(Catch2 PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+set_target_properties(Catch2WithMain PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
 
 # Test executable
 add_executable(FlowGraphTests
@@ -21,6 +27,9 @@ add_executable(FlowGraphTests
     integration/test_basic_flows.cpp
     integration/test_examples.cpp
 )
+
+# Group in IDE
+set_target_properties(FlowGraphTests PROPERTIES FOLDER "Tests")
 
 target_link_libraries(FlowGraphTests
     PRIVATE

@@ -8,7 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add options
 option(FLOWGRAPH_BUILD_TESTS "Build FlowGraph tests" ON)
-option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" ON)
+option(FLOWGRAPH_BUILD_EXAMPLES "Build FlowGraph examples" OFF)  # Default OFF to reduce clutter
 option(BUILD_EDITOR "Build FlowGraph editor" ON)
 option(BUILD_EDITOR_TESTS "Build FlowGraph editor UI tests" OFF)
 
@@ -32,7 +32,11 @@ if(BUILD_EDITOR)
         GIT_TAG v1.90.1
     )
     
-    # GLFW for cross-platform windowing
+    # GLFW for cross-platform windowing - hide from IDE targets
+    set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(
         glfw
         GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -66,6 +70,21 @@ if(BUILD_EDITOR)
     if(UNIX AND NOT APPLE)
         FetchContent_MakeAvailable(glad)
     endif()
+    
+    # Hide dependency targets from IDE to reduce clutter
+    set_target_properties(glfw PROPERTIES EXCLUDE_FROM_ALL TRUE)
+    if(TARGET glfw)
+        set_target_properties(glfw PROPERTIES FOLDER "Dependencies")
+    endif()
+    if(TARGET update_mappings)
+        set_target_properties(update_mappings PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
+    if(UNIX AND NOT APPLE AND TARGET glad)
+        set_target_properties(glad PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
+    if(TARGET glad-generate-files)
+        set_target_properties(glad-generate-files PROPERTIES EXCLUDE_FROM_ALL TRUE FOLDER "Dependencies")
+    endif()
 endif()
 
 # ExpressionKit is now available as ExpressionKit target from FetchContent_MakeAvailable
@@ -73,6 +92,9 @@ endif()
 # Header-only library
 add_library(FlowGraph INTERFACE)
 add_library(FlowGraph::FlowGraph ALIAS FlowGraph)
+
+# Group targets in IDE
+set_target_properties(FlowGraph PROPERTIES FOLDER "Core")
 
 # Include directories  
 target_include_directories(FlowGraph INTERFACE 
