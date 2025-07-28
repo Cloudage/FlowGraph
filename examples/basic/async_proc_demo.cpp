@@ -18,7 +18,7 @@ void getUserInfo(const ParameterMap& params, ProcCompletionCallback& callback) {
     std::string username = username_it->second.asString();
     
     ParameterMap result;
-    result["user_id"] = createValue(static_cast<int64_t>(12345));
+    result["user_id"] = createValue(12345.0);
     result["full_name"] = createValue("John Doe");
     result["email"] = createValue(username + "@example.com");
     
@@ -117,7 +117,7 @@ int main() {
         Parameter("username", TypeInfo(ValueType::String), "User login name")
     };
     userInfoDef.returnValues = {
-        ReturnValue("user_id", TypeInfo(ValueType::Integer), "Unique user ID"),
+        ReturnValue("user_id", TypeInfo(ValueType::Number), "Unique user ID"),
         ReturnValue("full_name", TypeInfo(ValueType::String), "User's full name"),
         ReturnValue("email", TypeInfo(ValueType::String), "User's email address")
     };

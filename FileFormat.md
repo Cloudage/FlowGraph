@@ -160,18 +160,23 @@ ASSIGN <类型> <变量名> <表达式>
 
 类型：
 
-- `I` - 整数 (Integer)
-- `F` - 浮点数 (Float)
+- `N` - 数字 (Number) - 统一的数字类型，支持整数和浮点数
 - `B` - 布尔值 (Boolean)
 - `S` - 字符串 (String)
+
+注意：为了向后兼容，旧的 `I` (整数) 和 `F` (浮点数) 类型标识符仍然可以使用，但都会被解析为统一的 `N` (数字) 类型。
 
 示例：
 
 ```
-ASSIGN I count 0
-ASSIGN F price 99.99
+ASSIGN N count 0          // 新的统一数字类型
+ASSIGN N price 99.99      // 支持整数和浮点数
 ASSIGN B is_valid true
 ASSIGN S message "Hello, " + username
+
+// 向后兼容示例（仍然有效）
+ASSIGN I old_count 0      // 旧的整数类型，解析为数字类型
+ASSIGN F old_price 99.99  // 旧的浮点类型，解析为数字类型
 ```
 
 ### 3. COND - 条件节点

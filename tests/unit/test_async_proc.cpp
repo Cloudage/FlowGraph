@@ -32,7 +32,7 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         auto procedure = engine.getProcedure("sync_proc");
         
         ProcCompletionCallback procCallback;
-        procCallback.SetAsyncCallback([&asyncCallbackCalled](const ProcResult& result) {
+        procCallback.SetAsyncCallback([&asyncCallbackCalled](const ProcResult& /*result*/) {
             asyncCallbackCalled = true;
         });
         
@@ -284,7 +284,7 @@ TEST_CASE("Async PROC functionality", "[async][proc]") {
         REQUIRE(initialProcs.size() >= 2); // At least print and log built-ins
         
         // Add a procedure
-        engine.registerProcedure("test_registry", [](const ParameterMap& params, ProcCompletionCallback& callback) -> void {
+        engine.registerProcedure("test_registry", [](const ParameterMap& /*params*/, ProcCompletionCallback& callback) -> void {
             callback(ProcResult::completedSuccess({}));
         });
         

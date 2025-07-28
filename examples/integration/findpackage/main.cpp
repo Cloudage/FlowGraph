@@ -32,7 +32,7 @@ int main() {
         
         // Create AST for a simple flow
         
-        auto assign = std::make_shared<FlowGraph::AssignNode>("assign", FlowGraph::TypeInfo(FlowGraph::ValueType::Integer), "x", "10");
+        auto assign = std::make_shared<FlowGraph::AssignNode>("assign", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "x", "10");
         auto proc = std::make_shared<FlowGraph::ProcNode>("calc", "increment");
         auto cond = std::make_shared<FlowGraph::CondNode>("check", "x < 20");
         

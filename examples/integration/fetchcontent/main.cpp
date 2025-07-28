@@ -21,7 +21,7 @@ int main() {
         std::cout << "✓ Expression evaluation: 2 + 3 * 4 = " << result.asString() << std::endl;
         
         // Create some basic AST nodes
-        FlowGraph::AssignNode assignNode("assign", FlowGraph::TypeInfo(FlowGraph::ValueType::Integer), "x", "0");
+        FlowGraph::AssignNode assignNode("assign", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "x", "0");
         FlowGraph::ProcNode procNode("process", "increment");
         FlowGraph::CondNode condNode("check", "x < 10");
         

@@ -21,7 +21,7 @@ A C++ header-only library for parsing and executing text-based flowcharts. FlowG
 #include "flowgraph/FlowGraph.hpp"
 
 // Load and execute a flow
-FlowGraph::Engine engine;
+FlowGraph::FlowGraphEngine engine;
 auto flow = engine.loadFlow("path/to/workflow.flow");
 auto result = flow.execute();
 ```

@@ -11,24 +11,24 @@ int main() {
         ast->title = "Calculator Flow";
         
         // Define parameters and return values
-        ast->parameters.emplace_back("a", FlowGraph::TypeInfo(FlowGraph::ValueType::Float), "First number");
-        ast->parameters.emplace_back("b", FlowGraph::TypeInfo(FlowGraph::ValueType::Float), "Second number");
-        ast->returnValues.emplace_back("result", FlowGraph::TypeInfo(FlowGraph::ValueType::Float), "Calculation result");
+        ast->parameters.emplace_back("a", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "First number");
+        ast->parameters.emplace_back("b", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "Second number");
+        ast->returnValues.emplace_back("result", FlowGraph::TypeInfo(FlowGraph::ValueType::Number), "Calculation result");
         ast->returnValues.emplace_back("message", FlowGraph::TypeInfo(FlowGraph::ValueType::String), "Result message");
         
         // Create nodes that use expressions
         auto assign1 = std::make_unique<FlowGraph::AssignNode>("10", 
-            FlowGraph::TypeInfo(FlowGraph::ValueType::Float), 
+            FlowGraph::TypeInfo(FlowGraph::ValueType::Number), 
             "sum", 
             "a + b");
         
         auto assign2 = std::make_unique<FlowGraph::AssignNode>("20", 
-            FlowGraph::TypeInfo(FlowGraph::ValueType::Float), 
+            FlowGraph::TypeInfo(FlowGraph::ValueType::Number), 
             "product", 
             "a * b");
         
         auto assign3 = std::make_unique<FlowGraph::AssignNode>("30", 
-            FlowGraph::TypeInfo(FlowGraph::ValueType::Float), 
+            FlowGraph::TypeInfo(FlowGraph::ValueType::Number), 
             "result", 
             "max(sum, product)");
         
