@@ -218,9 +218,16 @@ bool UITestApp::InitializeTestEngine(int argc, char** argv) {
     // Queue specific tests or all tests based on command line
     // Run a subset in headless mode for faster CI
     if (headless_mode) {
-        // Only run basic tests in headless mode - register each test manually
-        ImGuiTestEngine_QueueTest(test_engine, "editor/basic_initialization");
-        ImGuiTestEngine_QueueTest(test_engine, "editor/menu_navigation");
+        // Only run basic tests in headless mode - find and queue specific tests
+        ImGuiTest* basic_test = ImGuiTestEngine_FindTestByName(test_engine, "editor", "basic_initialization");
+        if (basic_test) {
+            ImGuiTestEngine_QueueTest(test_engine, basic_test);
+        }
+        
+        ImGuiTest* menu_test = ImGuiTestEngine_FindTestByName(test_engine, "editor", "menu_navigation");
+        if (menu_test) {
+            ImGuiTestEngine_QueueTest(test_engine, menu_test);
+        }
     } else {
         // Run all tests in GUI mode
         ImGuiTestEngine_QueueTests(test_engine, ImGuiTestGroup_Tests, nullptr, ImGuiTestRunFlags_RunFromCommandLine);
