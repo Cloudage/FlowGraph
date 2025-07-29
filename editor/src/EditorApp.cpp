@@ -39,6 +39,14 @@
 #include <vector>
 #include <algorithm>
 
+// Include FlowGraph layout library
+#include "../../include/flowgraph_layout/Layout.hpp"
+#include "../../include/flowgraph_layout/HierarchicalLayout.hpp"
+#include "../../include/flowgraph_layout/ForceDirectedLayout.hpp"
+#include "../../include/flowgraph_layout/GridLayout.hpp"
+
+using namespace flowgraph::layout;
+
 namespace FlowGraph {
 namespace Editor {
 
@@ -134,6 +142,9 @@ bool EditorApp::Initialize() {
         CleanupWindow();
         return false;
     }
+    
+    // Initialize demo graph
+    InitializeDemoGraph();
 
     m_initialized = true;
     return true;
@@ -376,6 +387,7 @@ bool EditorApp::InitializeImGui() {
     // Enable keyboard and gamepad controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+    // Note: Docking may not be available in this ImGui version
     
     // Configure high-DPI support
     float xscale, yscale;
@@ -442,34 +454,43 @@ void EditorApp::RenderFrame() {
 
     ImGui::NewFrame();
 
-    // Show ImGui demo window
-    static bool show_demo_window = true;
-    if (show_demo_window) {
-        ImGui::ShowDemoWindow(&show_demo_window);
+    // Menu bar
+    if (ImGui::BeginMainMenuBar()) {
+        if (ImGui::BeginMenu("File")) {
+            ImGui::MenuItem("New Graph", "Ctrl+N");
+            ImGui::MenuItem("Open Graph", "Ctrl+O");
+            ImGui::MenuItem("Save Graph", "Ctrl+S");
+            ImGui::Separator();
+            ImGui::MenuItem("Exit", "Alt+F4");
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("Layout")) {
+            for (const auto& layout : m_availableLayouts) {
+                if (ImGui::MenuItem(layout.c_str(), nullptr, layout == m_currentLayoutAlgorithm)) {
+                    m_currentLayoutAlgorithm = layout;
+                    ApplyLayout();
+                    RequestRender();
+                }
+            }
+            ImGui::EndMenu();
+        }
+        if (ImGui::BeginMenu("View")) {
+            ImGui::MenuItem("Graph Controls", nullptr, &m_showGraphControls);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMainMenuBar();
     }
-
-    // Show a simple window with app info
-    ImGui::Begin("FlowGraph Editor");
-    ImGui::Text("Welcome to FlowGraph Editor!");
-    ImGui::Text("Platform: "
-#ifdef __APPLE__
-                "macOS (Metal)"
-#elif defined(_WIN32)
-                "Windows (DirectX 11)"
-#else
-                "Linux (OpenGL 3.3)"
-#endif
-    );
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 
-                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
     
-    // Display DPI scale information
-    ImGui::Text("Content Scale: %.1fx%.1f", m_contentScaleX, m_contentScaleY);
-    
-    if (ImGui::Button("Show Demo Window")) {
-        show_demo_window = true;
+    // Render graph controls panel
+    if (m_showGraphControls) {
+        RenderGraphControls();
     }
-    ImGui::End();
+    
+    // Render the main graph visualization
+    RenderGraph();
+    
+    // Render status bar at the bottom
+    RenderStatusBar();
 
     // Rendering
     ImGui::Render();
@@ -484,7 +505,7 @@ void EditorApp::RenderFrame() {
         MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
         renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
         renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.45, 0.55, 0.60, 1.0);
+        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.25, 0.25, 0.25, 1.0);
         renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
         
         // Create command buffer
@@ -505,7 +526,7 @@ void EditorApp::RenderFrame() {
     }
 #elif defined(_WIN32)
     // DirectX 11 rendering for Windows
-    const float clearColor[4] = { 0.45f, 0.55f, 0.60f, 1.00f };
+    const float clearColor[4] = { 0.25f, 0.25f, 0.25f, 1.00f };
     m_d3dContext->OMSetRenderTargets(1, m_renderTargetView.GetAddressOf(), nullptr);
     m_d3dContext->ClearRenderTargetView(m_renderTargetView.Get(), clearColor);
     ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
@@ -517,7 +538,7 @@ void EditorApp::RenderFrame() {
     int display_w, display_h;
     glfwGetFramebufferSize(m_window, &display_w, &display_h);
     glViewport(0, 0, display_w, display_h);
-    glClearColor(0.45f, 0.55f, 0.60f, 1.00f);
+    glClearColor(0.25f, 0.25f, 0.25f, 1.00f);
     glClear(GL_COLOR_BUFFER_BIT);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     
@@ -661,6 +682,313 @@ void EditorApp::CleanupWindow() {
         m_window = nullptr;
     }
     glfwTerminate();
+}
+
+void EditorApp::InitializeDemoGraph() {
+    using namespace flowgraph::layout;
+    
+    m_demoGraph = std::make_unique<GraphF>();
+    
+    // Create a demo hierarchical graph structure
+    // Add nodes with different types to showcase layout algorithms
+    m_demoGraph->addNode(NodeF(1, {100, 50}, {80, 40}));  // Root node
+    m_demoGraph->addNode(NodeF(2, {50, 150}, {80, 40}));  // Left child
+    m_demoGraph->addNode(NodeF(3, {150, 150}, {80, 40})); // Right child
+    m_demoGraph->addNode(NodeF(4, {20, 250}, {80, 40}));  // Left-left child
+    m_demoGraph->addNode(NodeF(5, {80, 250}, {80, 40}));  // Left-right child
+    m_demoGraph->addNode(NodeF(6, {140, 250}, {80, 40})); // Right-left child
+    m_demoGraph->addNode(NodeF(7, {200, 250}, {80, 40})); // Right-right child
+    m_demoGraph->addNode(NodeF(8, {260, 150}, {80, 40})); // Additional node
+    m_demoGraph->addNode(NodeF(9, {300, 250}, {80, 40})); // Additional leaf
+    
+    // Add edges to create tree structure with some cross-connections
+    m_demoGraph->addEdge({1, 2}); // Root to left
+    m_demoGraph->addEdge({1, 3}); // Root to right
+    m_demoGraph->addEdge({2, 4}); // Left to left-left
+    m_demoGraph->addEdge({2, 5}); // Left to left-right
+    m_demoGraph->addEdge({3, 6}); // Right to right-left
+    m_demoGraph->addEdge({3, 7}); // Right to right-right
+    m_demoGraph->addEdge({1, 8}); // Root to additional
+    m_demoGraph->addEdge({8, 9}); // Additional to leaf
+    m_demoGraph->addEdge({5, 6}); // Cross connection for complexity
+    
+    // Apply initial layout
+    ApplyLayout();
+}
+
+void EditorApp::ApplyLayout() {
+    using namespace flowgraph::layout;
+    
+    if (!m_demoGraph || m_demoGraph->nodeCount() == 0) return;
+    
+    std::unique_ptr<LayoutAlgorithm<double>> layout;
+    
+    if (m_currentLayoutAlgorithm == "hierarchical") {
+        layout = std::make_unique<HierarchicalLayout<double>>();
+    } else if (m_currentLayoutAlgorithm == "force_directed") {
+        layout = std::make_unique<ForceDirectedLayout<double>>();
+    } else if (m_currentLayoutAlgorithm == "grid") {
+        layout = std::make_unique<GridLayout<double>>();
+    } else if (m_currentLayoutAlgorithm == "circular") {
+        layout = std::make_unique<CircularLayout<double>>();
+    } else {
+        // Default to hierarchical
+        layout = std::make_unique<HierarchicalLayout<double>>();
+    }
+    
+    LayoutConfig config;
+    config.nodeSpacing = 60.0;
+    config.layerSpacing = 80.0;
+    config.iterations = 100;
+    
+    auto result = layout->apply(*m_demoGraph, config);
+    
+    if (!result.success) {
+        std::cerr << "Layout failed: " << result.errorMessage << std::endl;
+    }
+}
+
+void EditorApp::RenderGraph() {
+    using namespace flowgraph::layout;
+    
+    ImGui::SetNextWindowPos(ImVec2(250, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+    
+    if (ImGui::Begin("Graph Visualization", nullptr, ImGuiWindowFlags_None)) {
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();
+        ImVec2 canvas_sz = ImGui::GetContentRegionAvail();
+        ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
+        
+        // Draw border
+        draw_list->AddRect(canvas_p0, canvas_p1, IM_COL32(255, 255, 255, 255));
+        
+        // Create invisible button for interaction
+        ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
+        const bool is_hovered = ImGui::IsItemHovered();
+        const bool is_active = ImGui::IsItemActive();
+        
+        // Draw graph if we have nodes
+        if (m_demoGraph && m_demoGraph->nodeCount() > 0) {
+            const auto& nodes = m_demoGraph->getNodes();
+            const auto& edges = m_demoGraph->getEdges();
+            
+            // Find bounds for centering
+            double min_x = std::numeric_limits<double>::max();
+            double max_x = std::numeric_limits<double>::lowest();
+            double min_y = std::numeric_limits<double>::max();
+            double max_y = std::numeric_limits<double>::lowest();
+            
+            for (const auto& pair : nodes) {
+                const auto& node = pair.second;
+                min_x = std::min(min_x, node.position.x);
+                max_x = std::max(max_x, node.position.x + node.size.x);
+                min_y = std::min(min_y, node.position.y);
+                max_y = std::max(max_y, node.position.y + node.size.y);
+            }
+            
+            // Calculate scale and offset to fit graph in canvas
+            double graph_width = max_x - min_x;
+            double graph_height = max_y - min_y;
+            double scale_x = (canvas_sz.x - 40) / graph_width;
+            double scale_y = (canvas_sz.y - 40) / graph_height;
+            double scale = std::min(scale_x, scale_y);
+            scale = std::min(scale, 2.0); // Don't scale too much
+            
+            double offset_x = canvas_p0.x + (canvas_sz.x - graph_width * scale) / 2 - min_x * scale;
+            double offset_y = canvas_p0.y + (canvas_sz.y - graph_height * scale) / 2 - min_y * scale;
+            
+            // Draw edges first (behind nodes)
+            for (const auto& edge : edges) {
+                auto from_it = nodes.find(edge.from);
+                auto to_it = nodes.find(edge.to);
+                
+                if (from_it != nodes.end() && to_it != nodes.end()) {
+                    const auto& from_node = from_it->second;
+                    const auto& to_node = to_it->second;
+                    
+                    // Calculate center points
+                    ImVec2 from_center(
+                        offset_x + (from_node.position.x + from_node.size.x / 2) * scale,
+                        offset_y + (from_node.position.y + from_node.size.y / 2) * scale
+                    );
+                    ImVec2 to_center(
+                        offset_x + (to_node.position.x + to_node.size.x / 2) * scale,
+                        offset_y + (to_node.position.y + to_node.size.y / 2) * scale
+                    );
+                    
+                    // Draw edge line
+                    draw_list->AddLine(from_center, to_center, IM_COL32(150, 150, 150, 255), 2.0f);
+                    
+                    // Draw arrow head
+                    ImVec2 direction = ImVec2(to_center.x - from_center.x, to_center.y - from_center.y);
+                    float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
+                    if (length > 0) {
+                        direction.x /= length;
+                        direction.y /= length;
+                        
+                        ImVec2 arrow_tip = ImVec2(
+                            to_center.x - direction.x * 20,
+                            to_center.y - direction.y * 20
+                        );
+                        ImVec2 arrow_left = ImVec2(
+                            arrow_tip.x + direction.y * 8 - direction.x * 8,
+                            arrow_tip.y - direction.x * 8 - direction.y * 8
+                        );
+                        ImVec2 arrow_right = ImVec2(
+                            arrow_tip.x - direction.y * 8 - direction.x * 8,
+                            arrow_tip.y + direction.x * 8 - direction.y * 8
+                        );
+                        
+                        draw_list->AddTriangleFilled(arrow_tip, arrow_left, arrow_right, IM_COL32(150, 150, 150, 255));
+                    }
+                }
+            }
+            
+            // Draw nodes on top
+            for (const auto& pair : nodes) {
+                const auto& node = pair.second;
+                
+                ImVec2 node_min(
+                    offset_x + node.position.x * scale,
+                    offset_y + node.position.y * scale
+                );
+                ImVec2 node_max(
+                    offset_x + (node.position.x + node.size.x) * scale,
+                    offset_y + (node.position.y + node.size.y) * scale
+                );
+                
+                // Draw node background
+                draw_list->AddRectFilled(node_min, node_max, IM_COL32(100, 150, 200, 255), 4.0f);
+                draw_list->AddRect(node_min, node_max, IM_COL32(70, 120, 170, 255), 4.0f, 0, 2.0f);
+                
+                // Draw node ID text
+                char node_text[32];
+                snprintf(node_text, sizeof(node_text), "Node %zu", node.id);
+                
+                ImVec2 text_size = ImGui::CalcTextSize(node_text);
+                ImVec2 text_pos(
+                    node_min.x + (node_max.x - node_min.x - text_size.x) / 2,
+                    node_min.y + (node_max.y - node_min.y - text_size.y) / 2
+                );
+                
+                draw_list->AddText(text_pos, IM_COL32(255, 255, 255, 255), node_text);
+            }
+        }
+    }
+    ImGui::End();
+}
+
+void EditorApp::RenderGraphControls() {
+    ImGui::SetNextWindowPos(ImVec2(10, 50), ImGuiCond_FirstUseEver);
+    ImGui::SetNextWindowSize(ImVec2(230, 400), ImGuiCond_FirstUseEver);
+    
+    if (ImGui::Begin("Graph Controls", &m_showGraphControls)) {
+        ImGui::Text("Layout Algorithm:");
+        
+        // Layout selection combo
+        if (ImGui::BeginCombo("##layout", m_currentLayoutAlgorithm.c_str())) {
+            for (const auto& layout : m_availableLayouts) {
+                bool is_selected = (layout == m_currentLayoutAlgorithm);
+                if (ImGui::Selectable(layout.c_str(), is_selected)) {
+                    m_currentLayoutAlgorithm = layout;
+                    ApplyLayout();
+                    RequestRender();
+                }
+                if (is_selected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
+        }
+        
+        ImGui::Separator();
+        
+        if (ImGui::Button("Apply Layout", ImVec2(-1, 0))) {
+            ApplyLayout();
+            RequestRender();
+        }
+        
+        if (ImGui::Button("Regenerate Graph", ImVec2(-1, 0))) {
+            InitializeDemoGraph();
+            RequestRender();
+        }
+        
+        ImGui::Separator();
+        
+        // Graph statistics
+        ImGui::Text("Graph Statistics:");
+        if (m_demoGraph) {
+            ImGui::Text("Nodes: %zu", m_demoGraph->nodeCount());
+            ImGui::Text("Edges: %zu", m_demoGraph->edgeCount());
+        } else {
+            ImGui::Text("Nodes: 0");
+            ImGui::Text("Edges: 0");
+        }
+        
+        ImGui::Separator();
+        
+        // Layout algorithm info
+        ImGui::Text("Algorithm Info:");
+        if (m_currentLayoutAlgorithm == "hierarchical") {
+            ImGui::TextWrapped("Sugiyama framework - best for directed acyclic graphs and trees");
+        } else if (m_currentLayoutAlgorithm == "force_directed") {
+            ImGui::TextWrapped("Fruchterman-Reingold - physics-based layout for general graphs");
+        } else if (m_currentLayoutAlgorithm == "grid") {
+            ImGui::TextWrapped("Grid layout - arranges nodes in regular grid pattern");
+        } else if (m_currentLayoutAlgorithm == "circular") {
+            ImGui::TextWrapped("Circular layout - positions nodes in a circle");
+        }
+    }
+    ImGui::End();
+}
+
+void EditorApp::RenderStatusBar() {
+    ImGuiViewport* viewport = ImGui::GetMainViewport();
+    ImVec2 status_pos = ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 25);
+    ImVec2 status_size = ImVec2(viewport->Size.x, 25);
+    
+    ImGui::SetNextWindowPos(status_pos);
+    ImGui::SetNextWindowSize(status_size);
+    
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | 
+                            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+                            ImGuiWindowFlags_NoSavedSettings;
+    
+    if (ImGui::Begin("##StatusBar", nullptr, flags)) {
+        // FPS display
+        ImGui::Text("FPS: %.1f (%.3f ms)", ImGui::GetIO().Framerate, 1000.0f / ImGui::GetIO().Framerate);
+        
+        ImGui::SameLine();
+        ImGui::Text(" | ");
+        ImGui::SameLine();
+        
+        // Platform info
+        ImGui::Text("Platform: "
+#ifdef __APPLE__
+                    "macOS (Metal)"
+#elif defined(_WIN32)
+                    "Windows (DirectX 11)"
+#else
+                    "Linux (OpenGL 3.3)"
+#endif
+        );
+        
+        ImGui::SameLine();
+        ImGui::Text(" | ");
+        ImGui::SameLine();
+        
+        // Content scale
+        ImGui::Text("Scale: %.1fx%.1f", m_contentScaleX, m_contentScaleY);
+        
+        ImGui::SameLine();
+        ImGui::Text(" | ");
+        ImGui::SameLine();
+        
+        // Current layout algorithm
+        ImGui::Text("Layout: %s", m_currentLayoutAlgorithm.c_str());
+    }
+    ImGui::End();
 }
 
 } // namespace Editor

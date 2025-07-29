@@ -1,6 +1,16 @@
 #pragma once
 
 #include <memory>
+#include <string>
+#include <vector>
+
+// Forward declarations for FlowGraph layout
+namespace flowgraph {
+namespace layout {
+    template<typename T> class Graph;
+    using GraphF = Graph<double>;
+}
+}
 
 struct GLFWwindow;
 
@@ -111,6 +121,31 @@ private:
      * @brief Cleanup GLFW resources
      */
     void CleanupWindow();
+    
+    /**
+     * @brief Initialize demo graph data
+     */
+    void InitializeDemoGraph();
+    
+    /**
+     * @brief Apply selected layout algorithm to the graph
+     */
+    void ApplyLayout();
+    
+    /**
+     * @brief Render the graph visualization
+     */
+    void RenderGraph();
+    
+    /**
+     * @brief Render the graph controls UI
+     */
+    void RenderGraphControls();
+    
+    /**
+     * @brief Render the bottom status bar
+     */
+    void RenderStatusBar();
 
 #ifdef _WIN32
     /**
@@ -130,6 +165,12 @@ private:
     // Content scale for high-DPI support
     float m_contentScaleX = 1.0f;
     float m_contentScaleY = 1.0f;
+    
+    // Graph visualization data
+    std::unique_ptr<flowgraph::layout::GraphF> m_demoGraph;
+    std::string m_currentLayoutAlgorithm = "hierarchical";
+    std::vector<std::string> m_availableLayouts = {"hierarchical", "force_directed", "grid", "circular"};
+    bool m_showGraphControls = true;
     
 #ifdef _WIN32
     // DirectX 11-specific members for Windows
