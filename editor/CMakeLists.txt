@@ -187,7 +187,7 @@ if(BUILD_EDITOR_TESTS)
     endif()
     
     # Register UI tests with CTest
-    add_test(NAME editor_ui_tests COMMAND FlowGraph_Editor_UI_Tests -nogui -nopause)
+    add_test(NAME editor_ui_tests COMMAND xvfb-run -a ${CMAKE_CURRENT_BINARY_DIR}/FlowGraph_Editor_UI_Tests -nogui -nopause)
     set_tests_properties(editor_ui_tests PROPERTIES
         TIMEOUT 60
         LABELS "ui;editor"
