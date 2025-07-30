@@ -167,21 +167,16 @@ bool UITestApp::InitializeImGui() {
 
 #ifdef __APPLE__
     // Metal backend initialization - simplified for testing
-    if (!headless_mode) {
-        // For now, fall back to OpenGL on macOS for testing
-        ImGui_ImplOpenGL3_Init("#version 150");
-    }
+    // Always initialize even in headless mode so ImGui backend is complete
+    ImGui_ImplOpenGL3_Init("#version 150");
 #elif defined(_WIN32)
     // DirectX 11 backend initialization - simplified for testing  
-    if (!headless_mode) {
-        // For now, fall back to OpenGL on Windows for testing
-        ImGui_ImplOpenGL3_Init("#version 130");
-    }
+    // Always initialize even in headless mode so ImGui backend is complete
+    ImGui_ImplOpenGL3_Init("#version 130");
 #else
     // OpenGL backend
-    if (!headless_mode) {
-        ImGui_ImplOpenGL3_Init("#version 330");
-    }
+    // Always initialize even in headless mode so ImGui backend is complete
+    ImGui_ImplOpenGL3_Init("#version 330");
 #endif
     
     return true;
@@ -218,9 +213,9 @@ bool UITestApp::InitializeTestEngine(int argc, char** argv) {
     // Queue specific tests or all tests based on command line
     // Run a subset in headless mode for faster CI
     if (headless_mode) {
-        // Only run basic tests in headless mode - register each test manually
-        ImGuiTestEngine_QueueTest(test_engine, "editor/basic_initialization");
-        ImGuiTestEngine_QueueTest(test_engine, "editor/menu_navigation");
+        // Queue all tests even in headless mode
+        std::cout << "Queuing all tests in headless mode..." << std::endl;
+        ImGuiTestEngine_QueueTests(test_engine, ImGuiTestGroup_Tests, nullptr, ImGuiTestRunFlags_None);
     } else {
         // Run all tests in GUI mode
         ImGuiTestEngine_QueueTests(test_engine, ImGuiTestGroup_Tests, nullptr, ImGuiTestRunFlags_RunFromCommandLine);
@@ -265,9 +260,7 @@ int UITestApp::Run() {
         }
         
         // Start the ImGui frame
-        if (!headless_mode) {
-            ImGui_ImplOpenGL3_NewFrame();
-        }
+        ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
         
@@ -315,26 +308,31 @@ int UITestApp::Run() {
 }
 
 void UITestApp::Shutdown() {
+    // Stop test engine first, before destroying context
     if (test_engine) {
         ImGuiTestEngine_Stop(test_engine);
-        ImGuiTestEngine_DestroyContext(test_engine);
     }
     
-    // Cleanup ImGui
+    // Cleanup ImGui first before destroying test engine context
     if (ImGui::GetCurrentContext()) {
-        if (!headless_mode) {
+        // Always cleanup OpenGL backend since we now always initialize it
 #ifdef __APPLE__
-            // Metal cleanup would go here - for now using OpenGL fallback
-            ImGui_ImplOpenGL3_Shutdown();
+        // Metal cleanup would go here - for now using OpenGL fallback
+        ImGui_ImplOpenGL3_Shutdown();
 #elif defined(_WIN32)
-            // DirectX cleanup would go here - for now using OpenGL fallback
-            ImGui_ImplOpenGL3_Shutdown();
+        // DirectX cleanup would go here - for now using OpenGL fallback
+        ImGui_ImplOpenGL3_Shutdown();
 #else
-            ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplOpenGL3_Shutdown();
 #endif
-        }
         ImGui_ImplGlfw_Shutdown();
         ImGui::DestroyContext();
+    }
+    
+    // Now destroy test engine context
+    if (test_engine) {
+        ImGuiTestEngine_DestroyContext(test_engine);
+        test_engine = nullptr;
     }
     
     // Cleanup GLFW
