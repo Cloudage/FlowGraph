@@ -377,8 +377,8 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         
         // Graph Statistics
         ImGui::Text("Graph Statistics:");
-        ImGui::Text("Nodes: %d", vars.Int2);
-        ImGui::Text("Edges: %d", vars.Int3);
+        ImGui::Text("Nodes: %d", vars.Int1);
+        ImGui::Text("Edges: %d", vars.Int2);
         
         ImGui::Separator();
         
@@ -405,7 +405,6 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         auto& vars = ctx->GetVars<ImGuiTestGenericVars>();
         vars.Int1 = 0; // layout selection
         vars.Int2 = 9; // node count
-        vars.Int3 = 8; // edge count
         vars.Bool1 = false; // layout applied
         vars.Bool2 = false; // graph regenerated
         
@@ -413,7 +412,7 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         
         // Test layout algorithm selection
         ctx->ComboClick("##layout");
-        ctx->ComboClickAll("##layout", "force_directed");
+        ctx->ComboClick("##layout/force_directed");
         IM_CHECK_EQ(vars.Int1, 1);
         
         // Test apply layout button
@@ -424,10 +423,10 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         ctx->ItemClick("Regenerate Graph");
         IM_CHECK_EQ(vars.Bool2, true);
         
-        // Test switching to circular layout
+        // Test switching to grid layout
         ctx->ComboClick("##layout");
-        ctx->ComboClickAll("##layout", "circular");
-        IM_CHECK_EQ(vars.Int1, 3);
+        ctx->ComboClick("##layout/grid");
+        IM_CHECK_EQ(vars.Int1, 2);
         
         ctx->LogInfo("Graph layout controls test passed");
     };
@@ -532,7 +531,7 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         IM_CHECK(ctx->ItemExists(""));
         
         // Test canvas interaction
-        ctx->ItemHover("canvas");
+        ctx->MouseMove("canvas");
         IM_CHECK_EQ(vars.Bool1, true);
         
         ctx->ItemClick("canvas");
@@ -618,10 +617,6 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
                     current_layout = 2;
                     vars.Int1 = 2;
                 }
-                if (ImGui::MenuItem("circular", nullptr, current_layout == 3)) {
-                    current_layout = 3;
-                    vars.Int1 = 3;
-                }
                 ImGui::EndMenu();
             }
             if (ImGui::BeginMenu("View")) {
@@ -641,7 +636,6 @@ void RegisterEditorUITests(ImGuiTestEngine* engine) {
         IM_CHECK(ctx->ItemExists("Layout/hierarchical"));
         IM_CHECK(ctx->ItemExists("Layout/force_directed"));
         IM_CHECK(ctx->ItemExists("Layout/grid"));
-        IM_CHECK(ctx->ItemExists("Layout/circular"));
         
         // Test layout switching
         ctx->MenuClick("Layout/force_directed");

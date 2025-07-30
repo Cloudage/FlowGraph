@@ -39,7 +39,6 @@
 #include <vector>
 #include <algorithm>
 
-// Include FlowGraph layout library
 #include "../../include/flowgraph_layout/Layout.hpp"
 #include "../../include/flowgraph_layout/HierarchicalLayout.hpp"
 #include "../../include/flowgraph_layout/ForceDirectedLayout.hpp"
@@ -729,8 +728,6 @@ void EditorApp::ApplyLayout() {
         layout = std::make_unique<ForceDirectedLayout<double>>();
     } else if (m_currentLayoutAlgorithm == "grid") {
         layout = std::make_unique<GridLayout<double>>();
-    } else if (m_currentLayoutAlgorithm == "circular") {
-        layout = std::make_unique<CircularLayout<double>>();
     } else {
         // Default to hierarchical
         layout = std::make_unique<HierarchicalLayout<double>>();
@@ -936,8 +933,6 @@ void EditorApp::RenderGraphControls() {
             ImGui::TextWrapped("Fruchterman-Reingold - physics-based layout for general graphs");
         } else if (m_currentLayoutAlgorithm == "grid") {
             ImGui::TextWrapped("Grid layout - arranges nodes in regular grid pattern");
-        } else if (m_currentLayoutAlgorithm == "circular") {
-            ImGui::TextWrapped("Circular layout - positions nodes in a circle");
         }
     }
     ImGui::End();

@@ -169,7 +169,7 @@ private:
     // Graph visualization data
     std::unique_ptr<flowgraph::layout::GraphF> m_demoGraph;
     std::string m_currentLayoutAlgorithm = "hierarchical";
-    std::vector<std::string> m_availableLayouts = {"hierarchical", "force_directed", "grid", "circular"};
+    std::vector<std::string> m_availableLayouts = {"hierarchical", "force_directed", "grid"};
     bool m_showGraphControls = true;
     
 #ifdef _WIN32
