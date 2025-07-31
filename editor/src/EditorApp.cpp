@@ -818,14 +818,14 @@ void EditorApp::RenderGraph() {
         
         if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
             is_panning = true;
-            m_panStart = mouse_pos;
+            m_panStart = ToVec2(mouse_pos);
         }
         if (is_panning) {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
                 ImVec2 delta = ImVec2(mouse_pos.x - m_panStart.x, mouse_pos.y - m_panStart.y);
                 m_canvasOffset.x += delta.x;
                 m_canvasOffset.y += delta.y;
-                m_panStart = mouse_pos;
+                m_panStart = ToVec2(mouse_pos);
                 RequestRender();
             } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
                 is_panning = false;
@@ -1278,6 +1278,12 @@ ImVec2 EditorApp::GraphToScreen(const flowgraph::layout::Point<double>& graph_po
         m_canvasPos.x + graph_pos.x * m_canvasZoom + m_canvasOffset.x,
         m_canvasPos.y + graph_pos.y * m_canvasZoom + m_canvasOffset.y
     );
+}
+
+bool EditorApp::IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius) {
+    float dx = mouse_pos.x - port_pos.x;
+    float dy = mouse_pos.y - port_pos.y;
+    return (dx * dx + dy * dy) <= (radius * radius);
 }
 
 } // namespace Editor
