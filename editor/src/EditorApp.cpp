@@ -940,8 +940,12 @@ void EditorApp::RenderGraphControls() {
 
 void EditorApp::RenderStatusBar() {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
-    ImVec2 status_pos = ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - 25);
-    ImVec2 status_size = ImVec2(viewport->Size.x, 25);
+    
+    // Scale status bar height based on content scale for proper DPI handling
+    float statusBarHeight = 25.0f * std::max(m_contentScaleX, m_contentScaleY);
+    
+    ImVec2 status_pos = ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - statusBarHeight);
+    ImVec2 status_size = ImVec2(viewport->Size.x, statusBarHeight);
     
     ImGui::SetNextWindowPos(status_pos);
     ImGui::SetNextWindowSize(status_size);
