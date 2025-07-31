@@ -1,5 +1,8 @@
 #include "EditorApp.hpp"
 
+// Include full Graph definition to avoid incomplete type errors
+#include "../../include/flowgraph_layout/LayoutTypes.hpp"
+
 // Platform-specific includes
 #ifdef __APPLE__
     #include <Metal/Metal.h>
