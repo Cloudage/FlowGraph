@@ -815,18 +815,17 @@ void EditorApp::RenderGraph() {
         
         // Handle canvas panning
         static bool is_panning = false;
-        static ImVec2 pan_start;
         
         if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
             is_panning = true;
-            pan_start = mouse_pos;
+            m_panStart = mouse_pos;
         }
         if (is_panning) {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
-                ImVec2 delta = ImVec2(mouse_pos.x - pan_start.x, mouse_pos.y - pan_start.y);
+                ImVec2 delta = ImVec2(mouse_pos.x - m_panStart.x, mouse_pos.y - m_panStart.y);
                 m_canvasOffset.x += delta.x;
                 m_canvasOffset.y += delta.y;
-                pan_start = mouse_pos;
+                m_panStart = mouse_pos;
                 RequestRender();
             } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
                 is_panning = false;
