@@ -46,6 +46,12 @@
 
 using namespace flowgraph::layout;
 
+// Helper functions to convert between Vec2 and ImVec2
+namespace {
+    ImVec2 ToImVec2(const Vec2& v) { return ImVec2(v.x, v.y); }
+    Vec2 ToVec2(const ImVec2& v) { return Vec2(v.x, v.y); }
+}
+
 namespace FlowGraph {
 namespace Editor {
 
@@ -171,6 +177,25 @@ int EditorApp::Run() {
 
     // Main application loop with on-demand rendering
     while (ShouldContinue()) {
+        // Handle node dragging if active
+        if (m_isDraggingNode && m_selectedNodeId != 0) {
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+                // Update node position based on mouse movement
+                ImVec2 mouse_pos = ImGui::GetMousePos();
+                auto graph_pos = ScreenToGraph(ImVec2(mouse_pos.x - m_dragOffset.x, mouse_pos.y - m_dragOffset.y));
+                
+                if (m_demoGraph) {
+                    auto* node = m_demoGraph->getNode(m_selectedNodeId);
+                    if (node) {
+                        node->position = graph_pos;
+                        RequestRender();
+                    }
+                }
+            } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+                m_isDraggingNode = false;
+            }
+        }
+        
         // Wait for events instead of polling continuously
         // This ensures 0% CPU usage when idle
         glfwWaitEvents();
@@ -181,7 +206,7 @@ int EditorApp::Run() {
             
             // Check if ImGui wants to continue rendering (animations, etc.)
             ImGuiIO& io = ImGui::GetIO();
-            if (io.WantCaptureMouse || io.WantCaptureKeyboard) {
+            if (io.WantCaptureMouse || io.WantCaptureKeyboard || m_isDraggingNode || m_isCreatingConnection) {
                 m_shouldRender = true;
             }
         }
@@ -751,49 +776,103 @@ void EditorApp::RenderGraph() {
     ImGui::SetNextWindowPos(ImVec2(250, 50), ImGuiCond_FirstUseEver);
     ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
     
-    if (ImGui::Begin("Graph Visualization", nullptr, ImGuiWindowFlags_None)) {
+    if (ImGui::Begin("Node Editor Canvas", nullptr, ImGuiWindowFlags_None)) {
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
         ImVec2 canvas_p0 = ImGui::GetCursorScreenPos();
         ImVec2 canvas_sz = ImGui::GetContentRegionAvail();
         ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
         
+        // Store canvas info for coordinate transformations
+        m_canvasPos = ToVec2(canvas_p0);
+        m_canvasSize = ToVec2(canvas_sz);
+        
+        // Draw background grid
+        float grid_step = 64.0f * m_canvasZoom;
+        if (grid_step > 8.0f) {
+            ImU32 grid_color = IM_COL32(200, 200, 200, 40);
+            
+            float x = fmodf(m_canvasOffset.x, grid_step);
+            for (; x < canvas_sz.x; x += grid_step) {
+                draw_list->AddLine(ImVec2(canvas_p0.x + x, canvas_p0.y), 
+                                 ImVec2(canvas_p0.x + x, canvas_p1.y), grid_color);
+            }
+            
+            float y = fmodf(m_canvasOffset.y, grid_step);
+            for (; y < canvas_sz.y; y += grid_step) {
+                draw_list->AddLine(ImVec2(canvas_p0.x, canvas_p0.y + y), 
+                                 ImVec2(canvas_p1.x, canvas_p0.y + y), grid_color);
+            }
+        }
+        
         // Draw border
         draw_list->AddRect(canvas_p0, canvas_p1, IM_COL32(255, 255, 255, 255));
         
-        // Create invisible button for interaction
+        // Create invisible button for canvas interaction
         ImGui::InvisibleButton("canvas", canvas_sz, ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonRight);
         const bool is_hovered = ImGui::IsItemHovered();
         const bool is_active = ImGui::IsItemActive();
+        const ImVec2 mouse_pos = ImGui::GetMousePos();
+        
+        // Handle canvas panning
+        static bool is_panning = false;
+        
+        if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
+            is_panning = true;
+            m_panStart = mouse_pos;
+        }
+        if (is_panning) {
+            if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
+                ImVec2 delta = ImVec2(mouse_pos.x - m_panStart.x, mouse_pos.y - m_panStart.y);
+                m_canvasOffset.x += delta.x;
+                m_canvasOffset.y += delta.y;
+                m_panStart = mouse_pos;
+                RequestRender();
+            } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
+                is_panning = false;
+            }
+        }
+        
+        // Handle canvas zooming
+        if (is_hovered && ImGui::GetIO().MouseWheel != 0.0f) {
+            float wheel = ImGui::GetIO().MouseWheel;
+            float zoom_factor = wheel > 0 ? 1.1f : 0.9f;
+            
+            // Zoom towards mouse position
+            ImVec2 mouse_canvas = ImVec2(mouse_pos.x - canvas_p0.x, mouse_pos.y - canvas_p0.y);
+            ImVec2 mouse_world = ImVec2(
+                (mouse_canvas.x - m_canvasOffset.x) / m_canvasZoom,
+                (mouse_canvas.y - m_canvasOffset.y) / m_canvasZoom
+            );
+            
+            float new_zoom = std::clamp(m_canvasZoom * zoom_factor, MIN_ZOOM, MAX_ZOOM);
+            if (new_zoom != m_canvasZoom) {
+                m_canvasZoom = new_zoom;
+                
+                // Adjust offset to keep mouse position fixed
+                m_canvasOffset.x = mouse_canvas.x - mouse_world.x * m_canvasZoom;
+                m_canvasOffset.y = mouse_canvas.y - mouse_world.y * m_canvasZoom;
+                RequestRender();
+            }
+        }
+        
+        // Handle right-click context menu for creating nodes
+        if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right) && !m_isDraggingNode) {
+            ImGui::OpenPopup("canvas_context");
+        }
+        
+        if (ImGui::BeginPopup("canvas_context")) {
+            if (ImGui::MenuItem("Create Node")) {
+                auto graph_pos = ScreenToGraph(mouse_pos);
+                CreateNode(graph_pos);
+                RequestRender();
+            }
+            ImGui::EndPopup();
+        }
         
         // Draw graph if we have nodes
         if (m_demoGraph && m_demoGraph->nodeCount() > 0) {
             const auto& nodes = m_demoGraph->getNodes();
             const auto& edges = m_demoGraph->getEdges();
-            
-            // Find bounds for centering
-            double min_x = std::numeric_limits<double>::max();
-            double max_x = std::numeric_limits<double>::lowest();
-            double min_y = std::numeric_limits<double>::max();
-            double max_y = std::numeric_limits<double>::lowest();
-            
-            for (const auto& pair : nodes) {
-                const auto& node = pair.second;
-                min_x = std::min(min_x, node.position.x);
-                max_x = std::max(max_x, node.position.x + node.size.x);
-                min_y = std::min(min_y, node.position.y);
-                max_y = std::max(max_y, node.position.y + node.size.y);
-            }
-            
-            // Calculate scale and offset to fit graph in canvas
-            double graph_width = max_x - min_x;
-            double graph_height = max_y - min_y;
-            double scale_x = (canvas_sz.x - 40) / graph_width;
-            double scale_y = (canvas_sz.y - 40) / graph_height;
-            double scale = std::min(scale_x, scale_y);
-            scale = std::min(scale, 2.0); // Don't scale too much
-            
-            double offset_x = canvas_p0.x + (canvas_sz.x - graph_width * scale) / 2 - min_x * scale;
-            double offset_y = canvas_p0.y + (canvas_sz.y - graph_height * scale) / 2 - min_y * scale;
             
             // Draw edges first (behind nodes)
             for (const auto& edge : edges) {
@@ -804,37 +883,37 @@ void EditorApp::RenderGraph() {
                     const auto& from_node = from_it->second;
                     const auto& to_node = to_it->second;
                     
-                    // Calculate center points
-                    ImVec2 from_center(
-                        offset_x + (from_node.position.x + from_node.size.x / 2) * scale,
-                        offset_y + (from_node.position.y + from_node.size.y / 2) * scale
-                    );
-                    ImVec2 to_center(
-                        offset_x + (to_node.position.x + to_node.size.x / 2) * scale,
-                        offset_y + (to_node.position.y + to_node.size.y / 2) * scale
-                    );
+                    ImVec2 from_screen = GraphToScreen(flowgraph::layout::Point<double>(
+                        from_node.position.x + from_node.size.x / 2,
+                        from_node.position.y + from_node.size.y / 2
+                    ));
+                    ImVec2 to_screen = GraphToScreen(flowgraph::layout::Point<double>(
+                        to_node.position.x + to_node.size.x / 2,
+                        to_node.position.y + to_node.size.y / 2
+                    ));
                     
-                    // Draw edge line
-                    draw_list->AddLine(from_center, to_center, IM_COL32(150, 150, 150, 255), 2.0f);
+                    // Draw connection line
+                    draw_list->AddLine(from_screen, to_screen, IM_COL32(150, 150, 150, 255), CONNECTION_THICKNESS);
                     
                     // Draw arrow head
-                    ImVec2 direction = ImVec2(to_center.x - from_center.x, to_center.y - from_center.y);
+                    ImVec2 direction = ImVec2(to_screen.x - from_screen.x, to_screen.y - from_screen.y);
                     float length = std::sqrt(direction.x * direction.x + direction.y * direction.y);
                     if (length > 0) {
                         direction.x /= length;
                         direction.y /= length;
                         
+                        float arrow_size = 8.0f * m_canvasZoom;
                         ImVec2 arrow_tip = ImVec2(
-                            to_center.x - direction.x * 20,
-                            to_center.y - direction.y * 20
+                            to_screen.x - direction.x * NODE_PORT_RADIUS * m_canvasZoom,
+                            to_screen.y - direction.y * NODE_PORT_RADIUS * m_canvasZoom
                         );
                         ImVec2 arrow_left = ImVec2(
-                            arrow_tip.x + direction.y * 8 - direction.x * 8,
-                            arrow_tip.y - direction.x * 8 - direction.y * 8
+                            arrow_tip.x + direction.y * arrow_size - direction.x * arrow_size,
+                            arrow_tip.y - direction.x * arrow_size - direction.y * arrow_size
                         );
                         ImVec2 arrow_right = ImVec2(
-                            arrow_tip.x - direction.y * 8 - direction.x * 8,
-                            arrow_tip.y + direction.x * 8 - direction.y * 8
+                            arrow_tip.x - direction.y * arrow_size - direction.x * arrow_size,
+                            arrow_tip.y + direction.x * arrow_size - direction.y * arrow_size
                         );
                         
                         draw_list->AddTriangleFilled(arrow_tip, arrow_left, arrow_right, IM_COL32(150, 150, 150, 255));
@@ -842,34 +921,72 @@ void EditorApp::RenderGraph() {
                 }
             }
             
+            // Draw connection being created
+            if (m_isCreatingConnection && m_connectionSourceId != 0) {
+                auto source_it = nodes.find(m_connectionSourceId);
+                if (source_it != nodes.end()) {
+                    const auto& source_node = source_it->second;
+                    ImVec2 source_screen = GraphToScreen(flowgraph::layout::Point<double>(
+                        source_node.position.x + source_node.size.x / 2,
+                        source_node.position.y + source_node.size.y / 2
+                    ));
+                    
+                    draw_list->AddLine(source_screen, ToImVec2(m_connectionEndPos), IM_COL32(255, 255, 0, 255), CONNECTION_THICKNESS);
+                }
+            }
+            
             // Draw nodes on top
             for (const auto& pair : nodes) {
                 const auto& node = pair.second;
                 
-                ImVec2 node_min(
-                    offset_x + node.position.x * scale,
-                    offset_y + node.position.y * scale
-                );
-                ImVec2 node_max(
-                    offset_x + (node.position.x + node.size.x) * scale,
-                    offset_y + (node.position.y + node.size.y) * scale
-                );
+                ImVec2 node_min = GraphToScreen(node.position);
+                ImVec2 node_max = GraphToScreen(flowgraph::layout::Point<double>(
+                    node.position.x + node.size.x,
+                    node.position.y + node.size.y
+                ));
+                
+                // Check if node is currently being dragged
+                bool is_selected = (m_selectedNodeId == node.id);
+                
+                // Handle node interaction
+                if (HandleNodeInteraction(node.id, node_min, node_max)) {
+                    RequestRender();
+                }
                 
                 // Draw node background
-                draw_list->AddRectFilled(node_min, node_max, IM_COL32(100, 150, 200, 255), 4.0f);
-                draw_list->AddRect(node_min, node_max, IM_COL32(70, 120, 170, 255), 4.0f, 0, 2.0f);
+                ImU32 node_color = is_selected ? IM_COL32(120, 180, 220, 255) : IM_COL32(100, 150, 200, 255);
+                ImU32 border_color = is_selected ? IM_COL32(90, 150, 190, 255) : IM_COL32(70, 120, 170, 255);
                 
-                // Draw node ID text
-                char node_text[32];
-                snprintf(node_text, sizeof(node_text), "Node %zu", node.id);
+                draw_list->AddRectFilled(node_min, node_max, node_color, 4.0f * m_canvasZoom);
+                draw_list->AddRect(node_min, node_max, border_color, 4.0f * m_canvasZoom, 0, 2.0f * m_canvasZoom);
                 
-                ImVec2 text_size = ImGui::CalcTextSize(node_text);
-                ImVec2 text_pos(
-                    node_min.x + (node_max.x - node_min.x - text_size.x) / 2,
-                    node_min.y + (node_max.y - node_min.y - text_size.y) / 2
-                );
+                // Draw input port (left side)
+                ImVec2 input_port = ImVec2(node_min.x, (node_min.y + node_max.y) * 0.5f);
+                draw_list->AddCircleFilled(input_port, NODE_PORT_RADIUS * m_canvasZoom, IM_COL32(255, 100, 100, 255));
                 
-                draw_list->AddText(text_pos, IM_COL32(255, 255, 255, 255), node_text);
+                // Draw output port (right side)
+                ImVec2 output_port = ImVec2(node_max.x, (node_min.y + node_max.y) * 0.5f);
+                draw_list->AddCircleFilled(output_port, NODE_PORT_RADIUS * m_canvasZoom, IM_COL32(100, 255, 100, 255));
+                
+                // Draw node ID text (only if zoom is sufficient)
+                if (m_canvasZoom > 0.5f) {
+                    char node_text[32];
+                    snprintf(node_text, sizeof(node_text), "Node %zu", node.id);
+                    
+                    float font_scale = std::clamp(m_canvasZoom, 0.5f, 2.0f);
+                    ImVec2 text_size = ImGui::CalcTextSize(node_text);
+                    text_size.x *= font_scale;
+                    text_size.y *= font_scale;
+                    
+                    ImVec2 text_pos(
+                        node_min.x + (node_max.x - node_min.x - text_size.x) * 0.5f,
+                        node_min.y + (node_max.y - node_min.y - text_size.y) * 0.5f
+                    );
+                    
+                    // Draw text with custom scaling
+                    ImFont* font = ImGui::GetFont();
+                    draw_list->AddText(font, font->FontSize * font_scale, text_pos, IM_COL32(255, 255, 255, 255), node_text);
+                }
             }
         }
     }
@@ -988,6 +1105,179 @@ void EditorApp::RenderStatusBar() {
         ImGui::Text("Layout: %s", m_currentLayoutAlgorithm.c_str());
     }
     ImGui::End();
+}
+
+bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 node_max) {
+    ImVec2 mouse_pos = ImGui::GetMousePos();
+    bool mouse_in_node = (mouse_pos.x >= node_min.x && mouse_pos.x <= node_max.x &&
+                         mouse_pos.y >= node_min.y && mouse_pos.y <= node_max.y);
+    
+    // Check for port interactions first
+    ImVec2 input_port = ImVec2(node_min.x, (node_min.y + node_max.y) * 0.5f);
+    ImVec2 output_port = ImVec2(node_max.x, (node_min.y + node_max.y) * 0.5f);
+    
+    float port_radius = NODE_PORT_RADIUS * m_canvasZoom;
+    bool mouse_on_input = IsMouseOverPort(mouse_pos, input_port, port_radius);
+    bool mouse_on_output = IsMouseOverPort(mouse_pos, output_port, port_radius);
+    
+    // Handle connection creation from output port
+    if (mouse_on_output && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+        m_isCreatingConnection = true;
+        m_connectionSourceId = node_id;
+        m_connectionEndPos = ToVec2(mouse_pos);
+        return true;
+    }
+    
+    // Handle connection completion to input port
+    if (mouse_on_input && m_isCreatingConnection && m_connectionSourceId != 0 && m_connectionSourceId != node_id) {
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left)) {
+            CreateConnection(m_connectionSourceId, node_id);
+            m_isCreatingConnection = false;
+            m_connectionSourceId = 0;
+            return true;
+        }
+    }
+    
+    // Update connection end position if creating connection
+    if (m_isCreatingConnection) {
+        m_connectionEndPos = ToVec2(mouse_pos);
+        if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !mouse_on_input) {
+            // Cancel connection if released not on a port
+            m_isCreatingConnection = false;
+            m_connectionSourceId = 0;
+        }
+        return true;
+    }
+    
+    // Handle node selection and dragging
+    if (mouse_in_node) {
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
+            m_selectedNodeId = node_id;
+            m_isDraggingNode = true;
+            
+            // Calculate drag offset from node center
+            ImVec2 node_center = ImVec2((node_min.x + node_max.x) * 0.5f, (node_min.y + node_max.y) * 0.5f);
+            m_dragOffset = ToVec2(ImVec2(mouse_pos.x - node_center.x, mouse_pos.y - node_center.y));
+            return true;
+        }
+        
+        // Handle node deletion with right-click
+        if (ImGui::IsMouseClicked(ImGuiMouseButton_Right)) {
+            ImGui::OpenPopup(("node_context_" + std::to_string(node_id)).c_str());
+            return true;
+        }
+    }
+    
+    // Handle node context menu
+    if (ImGui::BeginPopup(("node_context_" + std::to_string(node_id)).c_str())) {
+        if (ImGui::MenuItem("Delete Node")) {
+            DeleteNode(node_id);
+            if (m_selectedNodeId == node_id) {
+                m_selectedNodeId = 0;
+            }
+            ImGui::CloseCurrentPopup();
+            return true;
+        }
+        ImGui::EndPopup();
+    }
+    
+    return false;
+}
+
+void EditorApp::CreateConnection(size_t from_node_id, size_t to_node_id) {
+    if (m_demoGraph && from_node_id != to_node_id) {
+        // Check if connection already exists
+        const auto& edges = m_demoGraph->getEdges();
+        for (const auto& edge : edges) {
+            if (edge.from == from_node_id && edge.to == to_node_id) {
+                return; // Connection already exists
+            }
+        }
+        
+        // Add the new edge
+        m_demoGraph->addEdge({from_node_id, to_node_id});
+    }
+}
+
+void EditorApp::DeleteConnection(size_t from_node_id, size_t to_node_id) {
+    if (m_demoGraph) {
+        // TODO: Implement edge removal - the layout library doesn't have removeEdge
+        // For now, we'll rebuild the graph without the edge
+        auto& edges = m_demoGraph->getEdges();
+        std::vector<flowgraph::layout::Edge> remaining_edges;
+        
+        for (const auto& edge : edges) {
+            if (!(edge.from == from_node_id && edge.to == to_node_id)) {
+                remaining_edges.push_back(edge);
+            }
+        }
+        
+        // Create new graph with remaining edges
+        auto new_graph = std::make_unique<flowgraph::layout::GraphF>();
+        const auto& nodes = m_demoGraph->getNodes();
+        for (const auto& pair : nodes) {
+            new_graph->addNode(pair.second);
+        }
+        for (const auto& edge : remaining_edges) {
+            new_graph->addEdge(edge);
+        }
+        m_demoGraph = std::move(new_graph);
+    }
+}
+
+size_t EditorApp::CreateNode(const flowgraph::layout::Point<double>& position) {
+    if (m_demoGraph) {
+        size_t new_id = m_nextNodeId++;
+        flowgraph::layout::NodeF new_node(new_id, position, {NODE_WIDTH, NODE_HEIGHT});
+        m_demoGraph->addNode(new_node);
+        return new_id;
+    }
+    return 0;
+}
+
+void EditorApp::DeleteNode(size_t node_id) {
+    if (m_demoGraph) {
+        // TODO: Implement node removal - the layout library doesn't have removeNode
+        // For now, we'll rebuild the graph without the node and its edges
+        const auto& nodes = m_demoGraph->getNodes();
+        const auto& edges = m_demoGraph->getEdges();
+        
+        // Create new graph without the deleted node
+        auto new_graph = std::make_unique<flowgraph::layout::GraphF>();
+        
+        // Add all nodes except the one being deleted
+        for (const auto& pair : nodes) {
+            if (pair.first != node_id) {
+                new_graph->addNode(pair.second);
+            }
+        }
+        
+        // Add all edges that don't involve the deleted node
+        for (const auto& edge : edges) {
+            if (edge.from != node_id && edge.to != node_id) {
+                new_graph->addEdge(edge);
+            }
+        }
+        
+        m_demoGraph = std::move(new_graph);
+    }
+}
+
+flowgraph::layout::Point<double> EditorApp::ScreenToGraph(ImVec2 screen_pos) {
+    // Convert screen coordinates to graph coordinates
+    ImVec2 canvas_pos = ImVec2(screen_pos.x - m_canvasPos.x, screen_pos.y - m_canvasPos.y);
+    return flowgraph::layout::Point<double>(
+        (canvas_pos.x - m_canvasOffset.x) / m_canvasZoom,
+        (canvas_pos.y - m_canvasOffset.y) / m_canvasZoom
+    );
+}
+
+ImVec2 EditorApp::GraphToScreen(const flowgraph::layout::Point<double>& graph_pos) {
+    // Convert graph coordinates to screen coordinates
+    return ImVec2(
+        m_canvasPos.x + graph_pos.x * m_canvasZoom + m_canvasOffset.x,
+        m_canvasPos.y + graph_pos.y * m_canvasZoom + m_canvasOffset.y
+    );
 }
 
 } // namespace Editor
