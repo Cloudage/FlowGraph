@@ -1,39 +1,8 @@
 #include "EditorApp.hpp"
 
-// Platform-specific includes
-#ifdef __APPLE__
-    #include <Metal/Metal.h>
-    #include <MetalKit/MetalKit.h>
-#elif defined(_WIN32)
-    #include <d3d11.h>
-    #include <dxgi1_4.h>
-    #include <wrl/client.h>
-    using Microsoft::WRL::ComPtr;
-#else
-    #include <glad/glad.h>
-    #define GLFW_INCLUDE_NONE
-#endif
-
 #include <GLFW/glfw3.h>
-
-#ifdef _WIN32
-    #define GLFW_EXPOSE_NATIVE_WIN32
-    #include <GLFW/glfw3native.h>
-#elif defined(__APPLE__)
-    #define GLFW_EXPOSE_NATIVE_COCOA
-    #include <GLFW/glfw3native.h>
-#endif
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
-
-// Platform-specific ImGui backend includes
-#ifdef __APPLE__
-    #include <imgui_impl_metal.h>
-#elif defined(_WIN32)
-    #include <imgui_impl_dx11.h>
-#else
-    #include <imgui_impl_opengl3.h>
-#endif
 
 #include <iostream>
 #include <vector>
@@ -281,130 +250,30 @@ bool EditorApp::InitializeWindow() {
     return true;
 }
 
+// Platform-specific implementation moved to separate files
+extern "C" bool SetupRenderingBackendImpl(GLFWwindow* window, void** deviceOut, void** contextOut, void** swapChainOut, void** renderTargetOut, void** layerOut);
+
 bool EditorApp::SetupRenderingBackend() {
 #ifdef __APPLE__
-    // Metal setup for macOS
-    // Create Metal device
-    m_metalDevice = MTLCreateSystemDefaultDevice();
-    if (!m_metalDevice) {
-        std::cerr << "Failed to create Metal device" << std::endl;
-        return false;
-    }
-    
-    // Create command queue
-    m_metalCommandQueue = [(id<MTLDevice>)m_metalDevice newCommandQueue];
-    if (!m_metalCommandQueue) {
-        std::cerr << "Failed to create Metal command queue" << std::endl;
-        return false;
-    }
-    
-    // Create Metal layer for the GLFW window
-    NSWindow* nsWindow = glfwGetCocoaWindow(m_window);
-    CAMetalLayer* metalLayer = [CAMetalLayer layer];
-    metalLayer.device = (id<MTLDevice>)m_metalDevice;
-    metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
-    
-    NSView* contentView = [nsWindow contentView];
-    [contentView setWantsLayer:YES];
-    [contentView setLayer:metalLayer];
-    
-    m_metalLayer = metalLayer;
-    
-    std::cout << "Metal initialized successfully" << std::endl;
-    return true;
+    return SetupRenderingBackendImpl(m_window, 
+        reinterpret_cast<void**>(&m_metalDevice), 
+        reinterpret_cast<void**>(&m_metalCommandQueue), 
+        nullptr, nullptr, 
+        reinterpret_cast<void**>(&m_metalLayer));
 #elif defined(_WIN32)
-    // Initialize DirectX 11 for Windows
-    HWND hwnd = glfwGetWin32Window(m_window);
-    
-    // Get window dimensions
-    int width, height;
-    glfwGetFramebufferSize(m_window, &width, &height);
-    
-    // Create DXGI factory
-    ComPtr<IDXGIFactory2> dxgiFactory;
-    HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create DXGI factory" << std::endl;
-        return false;
-    }
-    
-    // Create D3D11 device and context
-    D3D_FEATURE_LEVEL featureLevel;
-    D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
-    
-    hr = D3D11CreateDevice(
-        nullptr,                    // Use default adapter
-        D3D_DRIVER_TYPE_HARDWARE,
-        nullptr,                    // No software module
-        D3D11_CREATE_DEVICE_DEBUG,  // Enable debug layer in debug builds
-        featureLevels,
-        ARRAYSIZE(featureLevels),
-        D3D11_SDK_VERSION,
-        &m_d3dDevice,
-        &featureLevel,
-        &m_d3dContext
-    );
-    
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create D3D11 device" << std::endl;
-        return false;
-    }
-    
-    // Create swap chain
-    DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
-    swapChainDesc.Width = width;
-    swapChainDesc.Height = height;
-    swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
-    swapChainDesc.SampleDesc.Count = 1;
-    swapChainDesc.SampleDesc.Quality = 0;
-    swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
-    swapChainDesc.BufferCount = 2;
-    swapChainDesc.Scaling = DXGI_SCALING_STRETCH;
-    swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
-    swapChainDesc.AlphaMode = DXGI_ALPHA_MODE_UNSPECIFIED;
-    swapChainDesc.Flags = 0;
-    
-    hr = dxgiFactory->CreateSwapChainForHwnd(
-        m_d3dDevice.Get(),
-        hwnd,
-        &swapChainDesc,
-        nullptr,
-        nullptr,
-        &m_swapChain
-    );
-    
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create swap chain" << std::endl;
-        return false;
-    }
-    
-    // Create render target view
-    ComPtr<ID3D11Texture2D> backBuffer;
-    hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
-    if (FAILED(hr)) {
-        std::cerr << "Failed to get back buffer" << std::endl;
-        return false;
-    }
-    
-    hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create render target view" << std::endl;
-        return false;
-    }
-    
-    std::cout << "DirectX 11 initialized successfully" << std::endl;
-    return true;
+    return SetupRenderingBackendImpl(m_window, 
+        nullptr, nullptr,
+        reinterpret_cast<void**>(&m_swapChain), 
+        reinterpret_cast<void**>(&m_renderTargetView), 
+        nullptr);
 #else
-    // Initialize GLAD for OpenGL (Linux)
-    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-        std::cerr << "Failed to initialize GLAD" << std::endl;
-        return false;
-    }
-    
-    std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
-    return true;
+    return SetupRenderingBackendImpl(m_window, 
+        nullptr, nullptr, nullptr, nullptr, nullptr);
 #endif
 }
+
+// Platform-specific implementation moved to separate files
+extern "C" bool InitializeImGuiImpl(GLFWwindow* window, float contentScaleX, float contentScaleY, void* metalDevice, void* d3dDevice, void* d3dContext);
 
 bool EditorApp::InitializeImGui() {
     // Setup Dear ImGui context
@@ -415,7 +284,6 @@ bool EditorApp::InitializeImGui() {
     // Enable keyboard and gamepad controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-    // Note: Docking may not be available in this ImGui version
     
     // Configure high-DPI support
     float xscale, yscale;
@@ -423,25 +291,21 @@ bool EditorApp::InitializeImGui() {
     m_contentScaleX = xscale;
     m_contentScaleY = yscale;
     
-    // Set font scaling for high-DPI displays
-    if (xscale > 1.0f || yscale > 1.0f) {
-        float scale = std::max(xscale, yscale);
-        io.FontGlobalScale = scale;
-        
-        // Configure display size for proper DPI handling
-        int windowWidth, windowHeight;
-        int framebufferWidth, framebufferHeight;
-        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-        
-        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-        if (windowWidth > 0 && windowHeight > 0) {
-            io.DisplayFramebufferScale = ImVec2(
-                (float)framebufferWidth / windowWidth, 
-                (float)framebufferHeight / windowHeight
-            );
-        }
+    // Configure display size for proper DPI handling
+    int windowWidth, windowHeight;
+    int framebufferWidth, framebufferHeight;
+    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+    
+    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+    if (windowWidth > 0 && windowHeight > 0) {
+        io.DisplayFramebufferScale = ImVec2(
+            (float)framebufferWidth / windowWidth, 
+            (float)framebufferHeight / windowHeight
+        );
     }
+    
+    // Don't use FontGlobalScale as it can cause UI issues - rely on DisplayFramebufferScale instead
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
@@ -450,36 +314,41 @@ bool EditorApp::InitializeImGui() {
     ImGui_ImplGlfw_InitForOther(m_window, true);
 
 #ifdef __APPLE__
-    // Metal backend
-    ImGui_ImplMetal_Init((id<MTLDevice>)m_metalDevice);
+    return InitializeImGuiImpl(m_window, m_contentScaleX, m_contentScaleY, m_metalDevice, nullptr, nullptr);
 #elif defined(_WIN32)
-    // DirectX 11 backend for Windows
-    ImGui_ImplDX11_Init(m_d3dDevice.Get(), m_d3dContext.Get());
+    return InitializeImGuiImpl(m_window, m_contentScaleX, m_contentScaleY, nullptr, m_d3dDevice.Get(), m_d3dContext.Get());
 #else
-    // OpenGL 3.3 backend for Linux
-    const char* glsl_version = "#version 330";
-    ImGui_ImplOpenGL3_Init(glsl_version);
+    return InitializeImGuiImpl(m_window, m_contentScaleX, m_contentScaleY, nullptr, nullptr, nullptr);
 #endif
-
-    return true;
 }
+
+// Platform-specific implementation moved to separate files
+extern "C" void StartImGuiFrameImpl(void* metalLayer);
+extern "C" void RenderImGuiFrameImpl(void* metalDevice, void* metalCommandQueue, void* metalLayer, void* d3dDevice, void* d3dContext, void* renderTargetView, void* swapChain);
+extern "C" void UpdateMetalLayerSizeImpl(void* metalLayer, int width, int height);
 
 void EditorApp::RenderFrame() {
     // Poll events
     glfwPollEvents();
+    
+    // Update display size and framebuffer scale every frame for accurate rendering
+    ImGuiIO& io = ImGui::GetIO();
+    int windowWidth, windowHeight;
+    int framebufferWidth, framebufferHeight;
+    glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
+    glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
+    
+    io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
+    if (windowWidth > 0 && windowHeight > 0) {
+        io.DisplayFramebufferScale = ImVec2(
+            (float)framebufferWidth / windowWidth, 
+            (float)framebufferHeight / windowHeight
+        );
+    }
 
     // Start ImGui frame
     ImGui_ImplGlfw_NewFrame();
-
-#ifdef __APPLE__
-    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
-    ImGui_ImplMetal_NewFrame([MTLRenderPassDescriptor renderPassDescriptor]);
-#elif defined(_WIN32)
-    ImGui_ImplDX11_NewFrame();
-#else
-    ImGui_ImplOpenGL3_NewFrame();
-#endif
-
+    StartImGuiFrameImpl(m_metalLayer);
     ImGui::NewFrame();
 
     // Menu bar
@@ -522,55 +391,13 @@ void EditorApp::RenderFrame() {
 
     // Rendering
     ImGui::Render();
-
+    
 #ifdef __APPLE__
-    // Metal rendering for macOS
-    CAMetalLayer* metalLayer = (CAMetalLayer*)m_metalLayer;
-    id<CAMetalDrawable> drawable = [metalLayer nextDrawable];
-    
-    if (drawable) {
-        // Create render pass descriptor
-        MTLRenderPassDescriptor* renderPassDescriptor = [MTLRenderPassDescriptor renderPassDescriptor];
-        renderPassDescriptor.colorAttachments[0].texture = drawable.texture;
-        renderPassDescriptor.colorAttachments[0].loadAction = MTLLoadActionClear;
-        renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0.25, 0.25, 0.25, 1.0);
-        renderPassDescriptor.colorAttachments[0].storeAction = MTLStoreActionStore;
-        
-        // Create command buffer
-        id<MTLCommandBuffer> commandBuffer = [(id<MTLCommandQueue>)m_metalCommandQueue commandBuffer];
-        
-        // Create render encoder
-        id<MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
-        
-        // Render ImGui
-        ImGui_ImplMetal_RenderDrawData(ImGui::GetDrawData(), commandBuffer, renderEncoder);
-        
-        // End encoding
-        [renderEncoder endEncoding];
-        
-        // Present drawable
-        [commandBuffer presentDrawable:drawable];
-        [commandBuffer commit];
-    }
+    RenderImGuiFrameImpl(m_metalDevice, m_metalCommandQueue, m_metalLayer, nullptr, nullptr, nullptr, nullptr);
 #elif defined(_WIN32)
-    // DirectX 11 rendering for Windows
-    const float clearColor[4] = { 0.25f, 0.25f, 0.25f, 1.00f };
-    m_d3dContext->OMSetRenderTargets(1, m_renderTargetView.GetAddressOf(), nullptr);
-    m_d3dContext->ClearRenderTargetView(m_renderTargetView.Get(), clearColor);
-    ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
-    
-    // Present the frame
-    m_swapChain->Present(1, 0); // VSync enabled
+    RenderImGuiFrameImpl(nullptr, nullptr, nullptr, m_d3dDevice.Get(), m_d3dContext.Get(), m_renderTargetView.Get(), m_swapChain.Get());
 #else
-    // OpenGL rendering for Linux
-    int display_w, display_h;
-    glfwGetFramebufferSize(m_window, &display_w, &display_h);
-    glViewport(0, 0, display_w, display_h);
-    glClearColor(0.25f, 0.25f, 0.25f, 1.00f);
-    glClear(GL_COLOR_BUFFER_BIT);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    
-    glfwSwapBuffers(m_window);
+    RenderImGuiFrameImpl(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 #endif
 }
 
@@ -588,7 +415,10 @@ void EditorApp::HandleWindowResize(int width, int height) {
     // Request immediate re-render
     m_shouldRender = true;
     
-#ifdef _WIN32
+#ifdef __APPLE__
+    // Update Metal layer drawable size
+    UpdateMetalLayerSizeImpl(m_metalLayer, width, height);
+#elif defined(_WIN32)
     // Recreate DirectX render target with new size
     if (m_d3dDevice && m_swapChain) {
         RecreateDirectXRenderTarget(width, height);
@@ -630,74 +460,48 @@ void EditorApp::HandleContentScaleChange(float xscale, float yscale) {
     RequestRender();
 }
 
+// Platform-specific implementation moved to separate files
+extern "C" bool RecreateDirectXRenderTargetImpl(void* swapChain, void* d3dDevice, void** renderTargetView, int width, int height);
+
 #ifdef _WIN32
 bool EditorApp::RecreateDirectXRenderTarget(int width, int height) {
-    if (!m_swapChain || !m_d3dDevice) {
-        return false;
-    }
-    
-    // Release existing render target view
-    m_renderTargetView.Reset();
-    
-    // Resize the swap chain buffers
-    HRESULT hr = m_swapChain->ResizeBuffers(
-        0,                              // Keep existing buffer count
-        width,                          // New width
-        height,                         // New height  
-        DXGI_FORMAT_UNKNOWN,           // Keep existing format
-        0                              // No flags
-    );
-    
-    if (FAILED(hr)) {
-        std::cerr << "Failed to resize swap chain buffers" << std::endl;
-        return false;
-    }
-    
-    // Recreate render target view with new buffer
-    ComPtr<ID3D11Texture2D> backBuffer;
-    hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
-    if (FAILED(hr)) {
-        std::cerr << "Failed to get back buffer after resize" << std::endl;
-        return false;
-    }
-    
-    hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
-    if (FAILED(hr)) {
-        std::cerr << "Failed to create render target view after resize" << std::endl;
-        return false;
-    }
-    
-    return true;
+    void* renderTargetPtr = m_renderTargetView.Get();
+    bool result = RecreateDirectXRenderTargetImpl(m_swapChain.Get(), m_d3dDevice.Get(), &renderTargetPtr, width, height);
+    // Update the ComPtr with the new render target view
+    m_renderTargetView.Attach(reinterpret_cast<ID3D11RenderTargetView*>(renderTargetPtr));
+    return result;
 }
 #endif
 
+// Platform-specific implementation moved to separate files
+extern "C" void CleanupImGuiImpl();
+extern "C" void CleanupRenderingImpl(void** metalDevice, void** metalCommandQueue, void** metalLayer, void** d3dDevice, void** d3dContext, void** swapChain, void** renderTargetView);
+
 void EditorApp::CleanupImGui() {
+    CleanupImGuiImpl();
+    
 #ifdef __APPLE__
-    ImGui_ImplMetal_Shutdown();
-    
-    // Cleanup Metal resources
-    if (m_metalCommandQueue) {
-        [(id)m_metalCommandQueue release];
-        m_metalCommandQueue = nullptr;
-    }
-    if (m_metalDevice) {
-        [(id)m_metalDevice release];
-        m_metalDevice = nullptr;
-    }
-    if (m_metalLayer) {
-        [(id)m_metalLayer release];
-        m_metalLayer = nullptr;
-    }
+    void* metalDevicePtr = m_metalDevice;
+    void* metalCommandQueuePtr = m_metalCommandQueue;
+    void* metalLayerPtr = m_metalLayer;
+    CleanupRenderingImpl(&metalDevicePtr, &metalCommandQueuePtr, &metalLayerPtr, 
+        nullptr, nullptr, nullptr, nullptr);
+    m_metalDevice = metalDevicePtr;
+    m_metalCommandQueue = metalCommandQueuePtr;
+    m_metalLayer = metalLayerPtr;
 #elif defined(_WIN32)
-    ImGui_ImplDX11_Shutdown();
-    
-    // Cleanup DirectX resources
-    m_renderTargetView.Reset();
-    m_swapChain.Reset();
-    m_d3dContext.Reset();
+    void* d3dDevicePtr = m_d3dDevice.Get();
+    void* d3dContextPtr = m_d3dContext.Get();
+    void* swapChainPtr = m_swapChain.Get();
+    void* renderTargetViewPtr = m_renderTargetView.Get();
+    CleanupRenderingImpl(nullptr, nullptr, nullptr, 
+        &d3dDevicePtr, &d3dContextPtr, &swapChainPtr, &renderTargetViewPtr);
     m_d3dDevice.Reset();
+    m_d3dContext.Reset();
+    m_swapChain.Reset();
+    m_renderTargetView.Reset();
 #else
-    ImGui_ImplOpenGL3_Shutdown();
+    CleanupRenderingImpl(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr);
 #endif
 
     ImGui_ImplGlfw_Shutdown();
@@ -1062,8 +866,8 @@ void EditorApp::RenderGraphControls() {
 void EditorApp::RenderStatusBar() {
     ImGuiViewport* viewport = ImGui::GetMainViewport();
     
-    // Scale status bar height based on content scale for proper DPI handling
-    float statusBarHeight = 25.0f * std::max(m_contentScaleX, m_contentScaleY);
+    // Get platform-specific status bar height
+    float statusBarHeight = GetStatusBarHeight();
     
     ImVec2 status_pos = ImVec2(viewport->Pos.x, viewport->Pos.y + viewport->Size.y - statusBarHeight);
     ImVec2 status_size = ImVec2(viewport->Size.x, statusBarHeight);

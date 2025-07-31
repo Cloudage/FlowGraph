@@ -253,6 +253,12 @@ private:
      */
     bool IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius);
     
+    /**
+     * @brief Get platform-specific status bar height
+     * @return Status bar height in pixels
+     */
+    float GetStatusBarHeight() const;
+    
 #ifdef _WIN32
     // DirectX 11-specific members for Windows
     ComPtr<ID3D11Device> m_d3dDevice;

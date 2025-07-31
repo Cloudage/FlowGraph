@@ -96,20 +96,25 @@ else()
     target_compile_definitions(imgui PUBLIC IMGUI_IMPL_OPENGL_LOADER_GLAD)
 endif()
 
-# FlowGraph Editor executable - platform-specific source files
+# FlowGraph Editor executable - platform-independent core + platform-specific implementations
+set(EDITOR_SOURCES
+    src/main.cpp
+    src/EditorApp.cpp  # Platform-independent core
+)
+
+# Add platform-specific implementation files
 if(APPLE)
     # Use .mm file for Metal/Objective-C++ support on macOS
-    add_executable(FlowGraph_Editor_App
-        src/main.cpp
-        src/EditorApp.mm
-    )
+    list(APPEND EDITOR_SOURCES src/EditorAppMacOS.mm)
+elseif(WIN32)
+    # Use .cpp file for DirectX 11 support on Windows
+    list(APPEND EDITOR_SOURCES src/EditorAppWindows.cpp)
 else()
-    # Use .cpp file for Windows and Linux
-    add_executable(FlowGraph_Editor_App
-        src/main.cpp
-        src/EditorApp.cpp
-    )
+    # Use .cpp file for OpenGL support on Linux
+    list(APPEND EDITOR_SOURCES src/EditorAppLinux.cpp)
 endif()
+
+add_executable(FlowGraph_Editor_App ${EDITOR_SOURCES})
 
 # Group in IDE
 set_target_properties(FlowGraph_Editor_App PROPERTIES FOLDER "Editor")
@@ -136,28 +141,32 @@ if(APPLE)
     set_target_properties(FlowGraph_Editor_App PROPERTIES
         MACOSX_BUNDLE TRUE
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
+    )
+    # Apply ARC to the .mm file only
+    set_source_files_properties(src/EditorAppMacOS.mm PROPERTIES
         COMPILE_FLAGS "-fobjc-arc"
     )
 endif()
 
 # Add UI tests if enabled
 if(BUILD_EDITOR_TESTS)
-    # FlowGraph Editor UI Tests executable - platform-specific source files
+    # FlowGraph Editor UI Tests executable - use same architecture as main app
+    set(UI_TEST_SOURCES
+        tests/test_main.cpp
+        tests/test_editor_ui.cpp
+        src/EditorApp.cpp  # Platform-independent core
+    )
+    
+    # Add platform-specific implementation files for tests
     if(APPLE)
-        # Use .mm file for Metal/Objective-C++ support on macOS
-        add_executable(FlowGraph_Editor_UI_Tests
-            tests/test_main.cpp
-            tests/test_editor_ui.cpp
-            src/EditorApp.mm  # Re-use editor app code
-        )
+        list(APPEND UI_TEST_SOURCES src/EditorAppMacOS.mm)
+    elseif(WIN32)
+        list(APPEND UI_TEST_SOURCES src/EditorAppWindows.cpp)
     else()
-        # Use .cpp file for Windows and Linux
-        add_executable(FlowGraph_Editor_UI_Tests
-            tests/test_main.cpp
-            tests/test_editor_ui.cpp
-            src/EditorApp.cpp  # Re-use editor app code
-        )
+        list(APPEND UI_TEST_SOURCES src/EditorAppLinux.cpp)
     endif()
+    
+    add_executable(FlowGraph_Editor_UI_Tests ${UI_TEST_SOURCES})
     
     target_include_directories(FlowGraph_Editor_UI_Tests PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -182,6 +191,10 @@ if(BUILD_EDITOR_TESTS)
     if(APPLE)
         set_target_properties(FlowGraph_Editor_UI_Tests PROPERTIES
             MACOSX_BUNDLE TRUE
+            COMPILE_FLAGS "-fobjc-arc"
+        )
+        # Apply ARC to the .mm file only
+        set_source_files_properties(src/EditorAppMacOS.mm PROPERTIES
             COMPILE_FLAGS "-fobjc-arc"
         )
     endif()
