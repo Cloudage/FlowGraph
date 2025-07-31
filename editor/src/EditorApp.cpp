@@ -46,10 +46,10 @@
 
 using namespace flowgraph::layout;
 
-// Helper functions to convert between Vec2 and ImVec2
+// Helper functions to convert between Point<float> and ImVec2
 namespace {
-    ImVec2 ToImVec2(const Vec2& v) { return ImVec2(v.x, v.y); }
-    Vec2 ToVec2(const ImVec2& v) { return Vec2(v.x, v.y); }
+    ImVec2 ToImVec2(const flowgraph::layout::PointF& v) { return ImVec2(v.x, v.y); }
+    flowgraph::layout::PointF FromImVec2(const ImVec2& v) { return flowgraph::layout::PointF(v.x, v.y); }
 }
 
 namespace FlowGraph {
@@ -787,9 +787,9 @@ void EditorApp::RenderGraph() {
         ImVec2 canvas_p1 = ImVec2(canvas_p0.x + canvas_sz.x, canvas_p0.y + canvas_sz.y);
         
         // Store canvas info for coordinate transformations
-        m_canvasPos = ToVec2(canvas_p0);
-        m_canvasSize = ToVec2(canvas_sz);
-        
+        m_canvasPos = canvas_p0;
+        m_canvasSize = canvas_sz;
+
         // Draw background grid
         float grid_step = 64.0f * m_canvasZoom;
         if (grid_step > 8.0f) {
@@ -822,14 +822,14 @@ void EditorApp::RenderGraph() {
         
         if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
             is_panning = true;
-            m_panStart = ToVec2(mouse_pos);
+            m_panStart = FromImVec2(mouse_pos);
         }
         if (is_panning) {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
                 ImVec2 delta = ImVec2(mouse_pos.x - m_panStart.x, mouse_pos.y - m_panStart.y);
                 m_canvasOffset.x += delta.x;
                 m_canvasOffset.y += delta.y;
-                m_panStart = ToVec2(mouse_pos);
+                m_panStart = FromImVec2(mouse_pos);
                 RequestRender();
             } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
                 is_panning = false;
@@ -1128,7 +1128,7 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
     if (mouse_on_output && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
         m_isCreatingConnection = true;
         m_connectionSourceId = node_id;
-        m_connectionEndPos = ToVec2(mouse_pos);
+        m_connectionEndPos = FromImVec2(mouse_pos);
         return true;
     }
     
@@ -1144,7 +1144,7 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
     
     // Update connection end position if creating connection
     if (m_isCreatingConnection) {
-        m_connectionEndPos = ToVec2(mouse_pos);
+        m_connectionEndPos = FromImVec2(mouse_pos);
         if (ImGui::IsMouseReleased(ImGuiMouseButton_Left) && !mouse_on_input) {
             // Cancel connection if released not on a port
             m_isCreatingConnection = false;
@@ -1162,7 +1162,9 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
             // Calculate drag offset from mouse to node's top-left position in graph coordinates
             auto mouse_graph = ScreenToGraph(mouse_pos);
             auto node_graph = ScreenToGraph(node_min);
-            m_dragOffset = mouse_graph - node_graph;
+            auto offset = mouse_graph - node_graph;
+            m_dragOffset.x = offset.x;
+            m_dragOffset.y = offset.y;
             return true;
         }
         
@@ -1293,3 +1295,4 @@ bool EditorApp::IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius)
 
 } // namespace Editor
 } // namespace FlowGraph
+

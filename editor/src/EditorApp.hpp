@@ -3,25 +3,10 @@
 #include <memory>
 #include <string>
 #include <vector>
-
-// Simple 2D vector for internal use
-struct Vec2 {
-    float x, y;
-    Vec2() : x(0), y(0) {}
-    Vec2(float x_, float y_) : x(x_), y(y_) {}
-};
-
-// Forward declarations for FlowGraph layout
-namespace flowgraph {
-namespace layout {
-    template<typename T> class Graph;
-    using GraphF = Graph<double>;
-    template<typename T> struct Point;
-}
-}
+#include <imgui.h>
+#include "../../include/flowgraph_layout/LayoutTypes.hpp"
 
 struct GLFWwindow;
-struct ImVec2;
 
 #ifdef _WIN32
 #include <d3d11.h>
@@ -234,17 +219,17 @@ private:
     // Node editor state
     size_t m_selectedNodeId = 0;          // 0 means no selection
     bool m_isDraggingNode = false;
-    Vec2 m_dragOffset;                    // Offset from node center to mouse during drag
+    flowgraph::layout::PointF m_dragOffset;                    // Offset from node center to mouse during drag
     size_t m_connectionSourceId = 0;      // 0 means no connection in progress
     bool m_isCreatingConnection = false;
-    Vec2 m_connectionEndPos;              // Current mouse position during connection creation
-    
+    flowgraph::layout::PointF m_connectionEndPos;              // Current mouse position during connection creation
+
     // Canvas state for zoom and pan
-    Vec2 m_canvasOffset = Vec2(0, 0);
+    flowgraph::layout::PointF m_canvasOffset;
     float m_canvasZoom = 1.0f;
-    Vec2 m_canvasSize;                    // Size of the canvas area
-    Vec2 m_canvasPos;                     // Top-left position of canvas
-    
+    ImVec2 m_canvasSize;                    // Size of the canvas area
+    ImVec2 m_canvasPos;                     // Top-left position of canvas
+
     // Node editor settings
     static constexpr float NODE_WIDTH = 80.0f;
     static constexpr float NODE_HEIGHT = 40.0f;
@@ -257,8 +242,8 @@ private:
     size_t m_nextNodeId = 10;
     
     // Canvas panning state
-    Vec2 m_panStart;
-    
+    flowgraph::layout::PointF m_panStart;
+
     /**
      * @brief Check if mouse is over a port
      * @param mouse_pos Mouse position
