@@ -256,6 +256,18 @@ private:
     // Next node ID for creating new nodes
     size_t m_nextNodeId = 10;
     
+    // Canvas panning state
+    Vec2 m_panStart;
+    
+    /**
+     * @brief Check if mouse is over a port
+     * @param mouse_pos Mouse position
+     * @param port_pos Port center position
+     * @param radius Port radius
+     * @return true if mouse is over port
+     */
+    bool IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius);
+    
 #ifdef _WIN32
     // DirectX 11-specific members for Windows
     ComPtr<ID3D11Device> m_d3dDevice;

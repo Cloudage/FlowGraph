@@ -182,7 +182,11 @@ int EditorApp::Run() {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                 // Update node position based on mouse movement
                 ImVec2 mouse_pos = ImGui::GetMousePos();
-                auto graph_pos = ScreenToGraph(ImVec2(mouse_pos.x - m_dragOffset.x, mouse_pos.y - m_dragOffset.y));
+                auto mouse_graph = ScreenToGraph(mouse_pos);
+                auto graph_pos = flowgraph::layout::Point<double>(
+                    mouse_graph.x - m_dragOffset.x, 
+                    mouse_graph.y - m_dragOffset.y
+                );
                 
                 if (m_demoGraph) {
                     auto* node = m_demoGraph->getNode(m_selectedNodeId);
@@ -818,14 +822,14 @@ void EditorApp::RenderGraph() {
         
         if (is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Middle)) {
             is_panning = true;
-            m_panStart = mouse_pos;
+            m_panStart = ToVec2(mouse_pos);
         }
         if (is_panning) {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Middle)) {
                 ImVec2 delta = ImVec2(mouse_pos.x - m_panStart.x, mouse_pos.y - m_panStart.y);
                 m_canvasOffset.x += delta.x;
                 m_canvasOffset.y += delta.y;
-                m_panStart = mouse_pos;
+                m_panStart = ToVec2(mouse_pos);
                 RequestRender();
             } else if (ImGui::IsMouseReleased(ImGuiMouseButton_Middle)) {
                 is_panning = false;
@@ -1155,9 +1159,10 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
             m_selectedNodeId = node_id;
             m_isDraggingNode = true;
             
-            // Calculate drag offset from node center
-            ImVec2 node_center = ImVec2((node_min.x + node_max.x) * 0.5f, (node_min.y + node_max.y) * 0.5f);
-            m_dragOffset = ToVec2(ImVec2(mouse_pos.x - node_center.x, mouse_pos.y - node_center.y));
+            // Calculate drag offset from mouse to node's top-left position in graph coordinates
+            auto mouse_graph = ScreenToGraph(mouse_pos);
+            auto node_graph = ScreenToGraph(node_min);
+            m_dragOffset = mouse_graph - node_graph;
             return true;
         }
         
@@ -1278,6 +1283,12 @@ ImVec2 EditorApp::GraphToScreen(const flowgraph::layout::Point<double>& graph_po
         m_canvasPos.x + graph_pos.x * m_canvasZoom + m_canvasOffset.x,
         m_canvasPos.y + graph_pos.y * m_canvasZoom + m_canvasOffset.y
     );
+}
+
+bool EditorApp::IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius) {
+    float dx = mouse_pos.x - port_pos.x;
+    float dy = mouse_pos.y - port_pos.y;
+    return (dx * dx + dy * dy) <= (radius * radius);
 }
 
 } // namespace Editor
