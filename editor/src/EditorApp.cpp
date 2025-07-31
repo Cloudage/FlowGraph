@@ -1117,14 +1117,8 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
     ImVec2 output_port = ImVec2(node_max.x, (node_min.y + node_max.y) * 0.5f);
     
     float port_radius = NODE_PORT_RADIUS * m_canvasZoom;
-    bool mouse_on_input = (ImGui::GetMousePos().x >= input_port.x - port_radius && 
-                          ImGui::GetMousePos().x <= input_port.x + port_radius &&
-                          ImGui::GetMousePos().y >= input_port.y - port_radius && 
-                          ImGui::GetMousePos().y <= input_port.y + port_radius);
-    bool mouse_on_output = (ImGui::GetMousePos().x >= output_port.x - port_radius && 
-                           ImGui::GetMousePos().x <= output_port.x + port_radius &&
-                           ImGui::GetMousePos().y >= output_port.y - port_radius && 
-                           ImGui::GetMousePos().y <= output_port.y + port_radius);
+    bool mouse_on_input = IsMouseOverPort(mouse_pos, input_port, port_radius);
+    bool mouse_on_output = IsMouseOverPort(mouse_pos, output_port, port_radius);
     
     // Handle connection creation from output port
     if (mouse_on_output && ImGui::IsMouseClicked(ImGuiMouseButton_Left)) {
