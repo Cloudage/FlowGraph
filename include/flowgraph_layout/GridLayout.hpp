@@ -3,6 +3,11 @@
 #include "LayoutTypes.hpp"
 #include <cmath>
 
+// Define PI constant for cross-platform compatibility
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
+
 namespace flowgraph::layout {
 
 /// Simple grid-based layout algorithm
