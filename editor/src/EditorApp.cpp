@@ -1162,7 +1162,7 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
             // Calculate drag offset from mouse to node's top-left position in graph coordinates
             auto mouse_graph = ScreenToGraph(mouse_pos);
             auto node_graph = ScreenToGraph(node_min);
-            m_dragOffset = Vec2(mouse_graph.x - node_graph.x, mouse_graph.y - node_graph.y);
+            m_dragOffset = mouse_graph - node_graph;
             return true;
         }
         
