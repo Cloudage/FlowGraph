@@ -182,7 +182,11 @@ int EditorApp::Run() {
             if (ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
                 // Update node position based on mouse movement
                 ImVec2 mouse_pos = ImGui::GetMousePos();
-                auto graph_pos = ScreenToGraph(ImVec2(mouse_pos.x - m_dragOffset.x, mouse_pos.y - m_dragOffset.y));
+                auto mouse_graph = ScreenToGraph(mouse_pos);
+                auto graph_pos = flowgraph::layout::Point<double>(
+                    mouse_graph.x - m_dragOffset.x, 
+                    mouse_graph.y - m_dragOffset.y
+                );
                 
                 if (m_demoGraph) {
                     auto* node = m_demoGraph->getNode(m_selectedNodeId);
@@ -1155,9 +1159,10 @@ bool EditorApp::HandleNodeInteraction(size_t node_id, ImVec2 node_min, ImVec2 no
             m_selectedNodeId = node_id;
             m_isDraggingNode = true;
             
-            // Calculate drag offset from node center
-            ImVec2 node_center = ImVec2((node_min.x + node_max.x) * 0.5f, (node_min.y + node_max.y) * 0.5f);
-            m_dragOffset = ToVec2(ImVec2(mouse_pos.x - node_center.x, mouse_pos.y - node_center.y));
+            // Calculate drag offset from mouse to node's top-left position in graph coordinates
+            auto mouse_graph = ScreenToGraph(mouse_pos);
+            auto node_graph = ScreenToGraph(node_min);
+            m_dragOffset = Vec2(mouse_graph.x - node_graph.x, mouse_graph.y - node_graph.y);
             return true;
         }
         
