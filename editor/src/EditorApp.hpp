@@ -8,113 +8,110 @@
 
 struct GLFWwindow;
 
-#ifdef _WIN32
-#include <d3d11.h>
-#include <dxgi1_4.h>
-#include <wrl/client.h>
-using Microsoft::WRL::ComPtr;
-#endif
-
-#ifdef __APPLE__
-#ifdef __OBJC__
-@protocol MTLDevice;
-@protocol MTLCommandQueue;
-@protocol MTLRenderPassDescriptor;
-@class CAMetalLayer;
-#else
-typedef void* id;
-#endif
-#endif
-
 namespace FlowGraph {
 namespace Editor {
 
 /**
- * @brief Main application class for the FlowGraph Editor
+ * @brief Abstract base class for the FlowGraph Editor
  * 
  * Manages the application lifecycle, window creation, ImGui context,
  * and implements on-demand rendering for optimal performance.
+ * Platform-specific implementations are provided by subclasses.
  */
 class EditorApp {
 public:
-    EditorApp();
-    ~EditorApp();
+    virtual ~EditorApp() = default;
+
+    /**
+     * @brief Create platform-specific EditorApp instance
+     * @return std::unique_ptr<EditorApp> Platform-specific implementation
+     */
+    static std::unique_ptr<EditorApp> create();
 
     /**
      * @brief Initialize the application
      * @return true if initialization was successful, false otherwise
      */
-    bool Initialize();
+    virtual bool Initialize() = 0;
 
     /**
      * @brief Run the main application loop
      * @return Exit code (0 for success)
      */
-    int Run();
+    virtual int Run() = 0;
 
     /**
      * @brief Shutdown the application and cleanup resources
      */
-    void Shutdown();
+    virtual void Shutdown() = 0;
 
     /**
      * @brief Request a render on next frame (for on-demand rendering)
      */
-    void RequestRender();
+    virtual void RequestRender() = 0;
 
     /**
      * @brief Handle window resize events
      * @param width New window width
      * @param height New window height
      */
-    void HandleWindowResize(int width, int height);
+    virtual void HandleWindowResize(int width, int height) = 0;
 
     /**
      * @brief Handle content scale changes (for high-DPI support)
      * @param xscale New horizontal content scale
      * @param yscale New vertical content scale
      */
-    void HandleContentScaleChange(float xscale, float yscale);
+    virtual void HandleContentScaleChange(float xscale, float yscale) = 0;
 
-private:
+protected:
+    // Constructor is protected - only subclasses can create instances
+    EditorApp() = default;
+
     /**
      * @brief Initialize GLFW and create window
      * @return true if successful, false otherwise
      */
-    bool InitializeWindow();
+    virtual bool InitializeWindow() = 0;
 
     /**
      * @brief Initialize ImGui context and backend
      * @return true if successful, false otherwise
      */
-    bool InitializeImGui();
+    virtual bool InitializeImGui() = 0;
 
     /**
      * @brief Setup platform-specific rendering backend
      * @return true if successful, false otherwise
      */
-    bool SetupRenderingBackend();
+    virtual bool SetupRenderingBackend() = 0;
 
     /**
      * @brief Render one frame
      */
-    void RenderFrame();
+    virtual void RenderFrame() = 0;
 
     /**
      * @brief Check if window should close or if we need to redraw
      * @return true if should continue running, false if should exit
      */
-    bool ShouldContinue();
+    virtual bool ShouldContinue() = 0;
 
     /**
      * @brief Cleanup ImGui resources
      */
-    void CleanupImGui();
+    virtual void CleanupImGui() = 0;
 
     /**
      * @brief Cleanup GLFW resources
      */
-    void CleanupWindow();
+    virtual void CleanupWindow() = 0;
+
+    /**
+     * @brief Get platform-specific status bar height
+     * @return Status bar height in pixels
+     */
+    virtual float GetStatusBarHeight() const = 0;
     
     /**
      * @brief Initialize demo graph data
@@ -191,17 +188,16 @@ private:
      */
     ImVec2 GraphToScreen(const flowgraph::layout::Point<double>& graph_pos);
 
-#ifdef _WIN32
     /**
-     * @brief Recreate DirectX render target for window resize (Windows only)
-     * @param width New width
-     * @param height New height
-     * @return true if successful, false otherwise
+     * @brief Check if mouse is over a port
+     * @param mouse_pos Mouse position
+     * @param port_pos Port center position
+     * @param radius Port radius
+     * @return true if mouse is over port
      */
-    bool RecreateDirectXRenderTarget(int width, int height);
-#endif
+    bool IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius);
 
-private:
+protected:
     GLFWwindow* m_window = nullptr;
     bool m_initialized = false;
     bool m_shouldRender = true;
@@ -244,36 +240,6 @@ private:
     // Canvas panning state
     flowgraph::layout::PointF m_panStart;
 
-    /**
-     * @brief Check if mouse is over a port
-     * @param mouse_pos Mouse position
-     * @param port_pos Port center position
-     * @param radius Port radius
-     * @return true if mouse is over port
-     */
-    bool IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius);
-    
-    /**
-     * @brief Get platform-specific status bar height
-     * @return Status bar height in pixels
-     */
-    float GetStatusBarHeight() const;
-    
-#ifdef _WIN32
-    // DirectX 11-specific members for Windows
-    ComPtr<ID3D11Device> m_d3dDevice;
-    ComPtr<ID3D11DeviceContext> m_d3dContext;
-    ComPtr<IDXGISwapChain1> m_swapChain;
-    ComPtr<ID3D11RenderTargetView> m_renderTargetView;
-#endif
-
-#ifdef __APPLE__
-    // Metal-specific members for macOS
-    id m_metalDevice = nullptr;
-    id m_metalCommandQueue = nullptr;
-    id m_metalLayer = nullptr;
-#endif
-    
     // Window properties
     static constexpr int WINDOW_WIDTH = 1280;
     static constexpr int WINDOW_HEIGHT = 720;
