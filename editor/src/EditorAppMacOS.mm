@@ -464,7 +464,7 @@ protected:
     }
 
     float GetStatusBarHeight() const override {
-        return 25.0f;
+        return 25.0f * std::max(m_contentScaleX, m_contentScaleY);
     }
 
 private:
