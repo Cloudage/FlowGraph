@@ -381,6 +381,10 @@ protected:
     float GetStatusBarHeight() const override {
         return 12.0f * std::max(m_contentScaleX, m_contentScaleY);
     }
+
+    std::string GetPlatformText() const override {
+        return "Linux (OpenGL)";
+    }
 };
 
 // Static factory method implementation

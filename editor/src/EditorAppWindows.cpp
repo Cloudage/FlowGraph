@@ -397,12 +397,13 @@ protected:
     }
 
     float GetStatusBarHeight() const override {
-        // Use the same minimum scale logic for status bar height
+        // Windows status bar uses system DPI scaling
         float scale = CalculateMaxScale(m_contentScaleX, m_contentScaleY);
-        if (scale < 1.25f) {
-            scale = 1.25f;
-        }
         return 24.0f * scale;
+    }
+
+    std::string GetPlatformText() const override {
+        return "Windows (DirectX 11)";
     }
 
 private:
@@ -524,4 +525,3 @@ std::unique_ptr<EditorApp> EditorApp::create() {
 } // namespace FlowGraph
 
 #endif // _WIN32
-

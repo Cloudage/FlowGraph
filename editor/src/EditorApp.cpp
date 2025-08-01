@@ -459,8 +459,8 @@ void EditorApp::RenderStatusBar() {
         ImGui::SameLine();
         
         // Platform info - platform-specific text will be in subclasses
-        ImGui::Text("Platform: Cross-Platform");
-        
+        ImGui::Text("Platform: %s", GetPlatformText().c_str());
+
         ImGui::SameLine();
         ImGui::Text(" | ");
         ImGui::SameLine();
@@ -662,3 +662,4 @@ bool EditorApp::IsMouseOverPort(ImVec2 mouse_pos, ImVec2 port_pos, float radius)
 
 } // namespace Editor
 } // namespace FlowGraph
+

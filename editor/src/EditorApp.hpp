@@ -114,6 +114,12 @@ protected:
     virtual float GetStatusBarHeight() const = 0;
     
     /**
+     * @brief Get platform-specific display text
+     * @return Platform identification string
+     */
+    virtual std::string GetPlatformText() const = 0;
+
+    /**
      * @brief Initialize demo graph data
      */
     void InitializeDemoGraph();
