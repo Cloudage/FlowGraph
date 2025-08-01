@@ -8,9 +8,6 @@
 #include "../../include/flowgraph_layout/ForceDirectedLayout.hpp"
 #include "../../include/flowgraph_layout/GridLayout.hpp"
 
-// Include editor app for testing layout integration
-#include "../../editor/src/EditorApp.hpp"
-
 using namespace flowgraph::layout;
 using namespace Catch::literals;
 

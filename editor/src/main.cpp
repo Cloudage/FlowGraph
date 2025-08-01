@@ -2,16 +2,16 @@
 #include <iostream>
 
 int main() {
-    FlowGraph::Editor::EditorApp app;
+    auto app = FlowGraph::Editor::EditorApp::create();
     
-    if (!app.Initialize()) {
+    if (!app->Initialize()) {
         std::cerr << "Failed to initialize FlowGraph Editor" << std::endl;
         return -1;
     }
     
-    int result = app.Run();
+    int result = app->Run();
     
-    app.Shutdown();
+    app->Shutdown();
     
     return result;
 }
