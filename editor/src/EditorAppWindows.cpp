@@ -19,6 +19,15 @@ using Microsoft::WRL::ComPtr;
 #include <iostream>
 #include <memory>
 
+// 错误处理宏
+#define CHECK_RESULT(condition, message) \
+    do { \
+        if (!(condition)) { \
+            std::cerr << "Failed to " << message << std::endl; \
+            return false; \
+        } \
+    } while(0)
+
 namespace FlowGraph {
 namespace Editor {
 
@@ -29,6 +38,16 @@ private:
     ComPtr<ID3D11DeviceContext> m_d3dContext;
     ComPtr<IDXGISwapChain1> m_swapChain;
     ComPtr<ID3D11RenderTargetView> m_renderTargetView;
+
+    // 窗口尺寸和缩放计算的通用结构
+    struct WindowSizeInfo {
+        int windowWidth;
+        int windowHeight;
+        int framebufferWidth;
+        int framebufferHeight;
+        ImVec2 displaySize;
+        ImVec2 framebufferScale;
+    };
 
 public:
     EditorAppWindows() = default;
@@ -43,19 +62,14 @@ public:
             return true;
         }
 
-        if (!InitializeWindow()) {
-            std::cerr << "Failed to initialize window" << std::endl;
-            return false;
-        }
+        CHECK_RESULT(InitializeWindow(), "initialize window");
 
         if (!SetupRenderingBackend()) {
-            std::cerr << "Failed to setup rendering backend" << std::endl;
             CleanupWindow();
             return false;
         }
 
         if (!InitializeImGui()) {
-            std::cerr << "Failed to initialize ImGui" << std::endl;
             CleanupWindow();
             return false;
         }
@@ -159,23 +173,12 @@ public:
         
         // Update ImGui font scaling for new DPI
         ImGuiIO& io = ImGui::GetIO();
-        float scale = std::max(xscale, yscale);
+        float scale = CalculateMaxScale(xscale, yscale);
         io.FontGlobalScale = scale;
         
-        // Update display framebuffer scale
-        int windowWidth, windowHeight;
-        int framebufferWidth, framebufferHeight;
-        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-        
-        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-        if (windowWidth > 0 && windowHeight > 0) {
-            io.DisplayFramebufferScale = ImVec2(
-                (float)framebufferWidth / windowWidth, 
-                (float)framebufferHeight / windowHeight
-            );
-        }
-        
+        // Update display size and framebuffer scale
+        UpdateImGuiDisplayInfo(io);
+
         // Request re-render to apply new scaling
         RequestRender();
     }
@@ -187,10 +190,7 @@ protected:
             std::cerr << "GLFW Error " << error << ": " << description << std::endl;
         });
         
-        if (!glfwInit()) {
-            std::cerr << "Failed to initialize GLFW" << std::endl;
-            return false;
-        }
+        CHECK_RESULT(glfwInit(), "initialize GLFW");
 
         // Configure GLFW window hints for DirectX
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -198,7 +198,6 @@ protected:
         // Create window
         m_window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE, nullptr, nullptr);
         if (!m_window) {
-            std::cerr << "Failed to create GLFW window" << std::endl;
             glfwTerminate();
             return false;
         }
@@ -207,34 +206,7 @@ protected:
         glfwSetWindowUserPointer(m_window, this);
         
         // Set all necessary callbacks for on-demand rendering
-        glfwSetWindowRefreshCallback(m_window, [](GLFWwindow* window) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->RequestRender();
-        });
-        glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double, double) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->RequestRender();
-        });
-        glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int, int, int) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->RequestRender();
-        });
-        glfwSetKeyCallback(m_window, [](GLFWwindow* window, int, int, int, int) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->RequestRender();
-        });
-        glfwSetWindowFocusCallback(m_window, [](GLFWwindow* window, int) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->RequestRender();
-        });
-        glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app && width > 0 && height > 0) app->HandleWindowResize(width, height);
-        });
-        glfwSetWindowContentScaleCallback(m_window, [](GLFWwindow* window, float xscale, float yscale) {
-            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
-            if (app) app->HandleContentScaleChange(xscale, yscale);
-        });
+        SetupGLFWCallbacks();
 
         return true;
     }
@@ -250,11 +222,8 @@ protected:
         // Create DXGI factory
         ComPtr<IDXGIFactory2> dxgiFactory;
         HRESULT hr = CreateDXGIFactory1(IID_PPV_ARGS(&dxgiFactory));
-        if (FAILED(hr)) {
-            std::cerr << "Failed to create DXGI factory" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "create DXGI factory");
+
         // Create D3D11 device and context
         D3D_FEATURE_LEVEL featureLevel;
         D3D_FEATURE_LEVEL featureLevels[] = { D3D_FEATURE_LEVEL_11_0 };
@@ -272,11 +241,8 @@ protected:
             &m_d3dContext
         );
         
-        if (FAILED(hr)) {
-            std::cerr << "Failed to create D3D11 device" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "create D3D11 device");
+
         // Create swap chain
         DXGI_SWAP_CHAIN_DESC1 swapChainDesc = {};
         swapChainDesc.Width = width;
@@ -300,25 +266,16 @@ protected:
             &m_swapChain
         );
         
-        if (FAILED(hr)) {
-            std::cerr << "Failed to create swap chain" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "create swap chain");
+
         // Create render target view
         ComPtr<ID3D11Texture2D> backBuffer;
         hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
-        if (FAILED(hr)) {
-            std::cerr << "Failed to get back buffer" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "get back buffer");
+
         hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
-        if (FAILED(hr)) {
-            std::cerr << "Failed to create render target view" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "create render target view");
+
         std::cout << "DirectX 11 initialized successfully" << std::endl;
         return true;
     }
@@ -338,22 +295,11 @@ protected:
         glfwGetWindowContentScale(m_window, &xscale, &yscale);
         m_contentScaleX = xscale;
         m_contentScaleY = yscale;
-        float scale = std::max(xscale, yscale);
+        float scale = CalculateMaxScale(xscale, yscale);
         io.FontGlobalScale = scale;
         
         // Configure display size for proper DPI handling
-        int windowWidth, windowHeight;
-        int framebufferWidth, framebufferHeight;
-        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-        
-        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-        if (windowWidth > 0 && windowHeight > 0) {
-            io.DisplayFramebufferScale = ImVec2(
-                (float)framebufferWidth / windowWidth, 
-                (float)framebufferHeight / windowHeight
-            );
-        }
+        UpdateImGuiDisplayInfo(io);
 
         // Setup Dear ImGui style
         ImGui::StyleColorsDark();
@@ -371,18 +317,7 @@ protected:
         
         // Update display size and framebuffer scale every frame for accurate rendering
         ImGuiIO& io = ImGui::GetIO();
-        int windowWidth, windowHeight;
-        int framebufferWidth, framebufferHeight;
-        glfwGetWindowSize(m_window, &windowWidth, &windowHeight);
-        glfwGetFramebufferSize(m_window, &framebufferWidth, &framebufferHeight);
-        
-        io.DisplaySize = ImVec2((float)windowWidth, (float)windowHeight);
-        if (windowWidth > 0 && windowHeight > 0) {
-            io.DisplayFramebufferScale = ImVec2(
-                (float)framebufferWidth / windowWidth, 
-                (float)framebufferHeight / windowHeight
-            );
-        }
+        UpdateImGuiDisplayInfo(io);
 
         // Start ImGui frame
         ImGui_ImplDX11_NewFrame();
@@ -452,11 +387,8 @@ protected:
 
     void CleanupWindow() override {
         // Cleanup DirectX resources
-        m_renderTargetView.Reset();
-        m_swapChain.Reset();
-        m_d3dContext.Reset();
-        m_d3dDevice.Reset();
-        
+        CleanupDirectXResources();
+
         if (m_window) {
             glfwDestroyWindow(m_window);
             m_window = nullptr;
@@ -466,7 +398,7 @@ protected:
 
     float GetStatusBarHeight() const override {
         // Use the same minimum scale logic for status bar height
-        float scale = std::max(m_contentScaleX, m_contentScaleY);
+        float scale = CalculateMaxScale(m_contentScaleX, m_contentScaleY);
         if (scale < 1.25f) {
             scale = 1.25f;
         }
@@ -474,11 +406,89 @@ protected:
     }
 
 private:
-    bool RecreateDirectXRenderTarget(int width, int height) {
-        if (!m_swapChain || !m_d3dDevice) {
-            return false;
+    // 计算最大缩放值的通用方法
+    float CalculateMaxScale(float xscale, float yscale) const {
+        return std::max(xscale, yscale);
+    }
+
+    // 窗口尺寸和缩放计算的通用方法
+    WindowSizeInfo GetWindowSizeInfo() const {
+        WindowSizeInfo info;
+        glfwGetWindowSize(m_window, &info.windowWidth, &info.windowHeight);
+        glfwGetFramebufferSize(m_window, &info.framebufferWidth, &info.framebufferHeight);
+
+        info.displaySize = ImVec2((float)info.windowWidth, (float)info.windowHeight);
+
+        if (info.windowWidth > 0 && info.windowHeight > 0) {
+            info.framebufferScale = ImVec2(
+                (float)info.framebufferWidth / info.windowWidth,
+                (float)info.framebufferHeight / info.windowHeight
+            );
+        } else {
+            info.framebufferScale = ImVec2(1.0f, 1.0f);
         }
-        
+
+        return info;
+    }
+
+    // 更新ImGui显示信息的通用方法
+    void UpdateImGuiDisplayInfo(ImGuiIO& io) {
+        WindowSizeInfo info = GetWindowSizeInfo();
+        io.DisplaySize = info.displaySize;
+        io.DisplayFramebufferScale = info.framebufferScale;
+    }
+
+    // GLFW回调设置的模板方法
+    void SetupGLFWCallbacks() {
+        // 通用的请求渲染回调
+        glfwSetWindowRefreshCallback(m_window, [](GLFWwindow* window) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->RequestRender();
+        });
+
+        glfwSetCursorPosCallback(m_window, [](GLFWwindow* window, double, double) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->RequestRender();
+        });
+
+        glfwSetMouseButtonCallback(m_window, [](GLFWwindow* window, int, int, int) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->RequestRender();
+        });
+
+        glfwSetKeyCallback(m_window, [](GLFWwindow* window, int, int, int, int) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->RequestRender();
+        });
+
+        glfwSetWindowFocusCallback(m_window, [](GLFWwindow* window, int) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->RequestRender();
+        });
+
+        // 特殊的回调需要不同的处理
+        glfwSetWindowSizeCallback(m_window, [](GLFWwindow* window, int width, int height) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app && width > 0 && height > 0) app->HandleWindowResize(width, height);
+        });
+
+        glfwSetWindowContentScaleCallback(m_window, [](GLFWwindow* window, float xscale, float yscale) {
+            EditorApp* app = static_cast<EditorApp*>(glfwGetWindowUserPointer(window));
+            if (app) app->HandleContentScaleChange(xscale, yscale);
+        });
+    }
+
+    // COM对象清理的专用方法
+    void CleanupDirectXResources() {
+        m_renderTargetView.Reset();
+        m_swapChain.Reset();
+        m_d3dContext.Reset();
+        m_d3dDevice.Reset();
+    }
+
+    bool RecreateDirectXRenderTarget(int width, int height) {
+        CHECK_RESULT(m_swapChain && m_d3dDevice, "validate DirectX objects for resize");
+
         // Release existing render target view
         m_renderTargetView.Reset();
         
@@ -491,25 +501,16 @@ private:
             0                              // No flags
         );
         
-        if (FAILED(hr)) {
-            std::cerr << "Failed to resize swap chain buffers" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "resize swap chain buffers");
+
         // Recreate render target view with new buffer
         ComPtr<ID3D11Texture2D> backBuffer;
         hr = m_swapChain->GetBuffer(0, IID_PPV_ARGS(&backBuffer));
-        if (FAILED(hr)) {
-            std::cerr << "Failed to get back buffer after resize" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "get back buffer after resize");
+
         hr = m_d3dDevice->CreateRenderTargetView(backBuffer.Get(), nullptr, &m_renderTargetView);
-        if (FAILED(hr)) {
-            std::cerr << "Failed to create render target view after resize" << std::endl;
-            return false;
-        }
-        
+        CHECK_RESULT(SUCCEEDED(hr), "create render target view after resize");
+
         return true;
     }
 };
@@ -523,3 +524,4 @@ std::unique_ptr<EditorApp> EditorApp::create() {
 } // namespace FlowGraph
 
 #endif // _WIN32
+
