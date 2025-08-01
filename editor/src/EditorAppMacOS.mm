@@ -467,6 +467,10 @@ protected:
         return 12.0f * std::max(m_contentScaleX, m_contentScaleY);
     }
 
+    std::string GetPlatformText() const override {
+        return "macOS (Metal)";
+    }
+
 private:
     void UpdateMetalLayerSize(int width, int height) {
         if (!m_metalLayer) return;
@@ -490,3 +494,4 @@ std::unique_ptr<EditorApp> EditorApp::create() {
 } // namespace FlowGraph
 
 #endif // __APPLE__
+
