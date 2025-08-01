@@ -159,12 +159,14 @@ public:
         
         // Update ImGui font scaling for new DPI
         ImGuiIO& io = ImGui::GetIO();
-        if (xscale > 1.0f || yscale > 1.0f) {
-            float scale = std::max(xscale, yscale);
-            io.FontGlobalScale = scale;
-        } else {
-            io.FontGlobalScale = 1.0f;
+        float scale = std::max(xscale, yscale);
+        
+        // On Windows, ensure minimum 1.25x scaling for better readability
+        // since Windows DPI detection might report 1.0 even on high-DPI displays
+        if (scale < 1.25f) {
+            scale = 1.25f;
         }
+        io.FontGlobalScale = scale;
         
         // Update display framebuffer scale
         int windowWidth, windowHeight;
@@ -343,6 +345,13 @@ protected:
         m_contentScaleX = xscale;
         m_contentScaleY = yscale;
         
+        // Apply font scaling for Windows with minimum 1.25x for better readability
+        float scale = std::max(xscale, yscale);
+        if (scale < 1.25f) {
+            scale = 1.25f;
+        }
+        io.FontGlobalScale = scale;
+        
         // Configure display size for proper DPI handling
         int windowWidth, windowHeight;
         int framebufferWidth, framebufferHeight;
@@ -467,7 +476,12 @@ protected:
     }
 
     float GetStatusBarHeight() const override {
-        return 25.0f * std::max(m_contentScaleX, m_contentScaleY);
+        // Use the same minimum scale logic for status bar height
+        float scale = std::max(m_contentScaleX, m_contentScaleY);
+        if (scale < 1.25f) {
+            scale = 1.25f;
+        }
+        return 12.0f * scale;
     }
 
 private:
