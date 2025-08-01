@@ -15,7 +15,7 @@ static std::unique_ptr<FlowGraph::Editor::EditorApp> g_editor_app;
 // Initialize editor app for testing
 static void InitializeEditorForTesting() {
     if (!g_editor_app) {
-        g_editor_app = std::make_unique<FlowGraph::Editor::EditorApp>();
+        g_editor_app = std::make_unique<FlowGraph::Editor::EditorApp>(FlowGraph::Editor::EditorApp::create());
         // Note: We don't call Initialize() here as the test framework handles window creation
     }
 }
