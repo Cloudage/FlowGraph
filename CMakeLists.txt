@@ -18,7 +18,7 @@ include(FetchContent)
 FetchContent_Declare(
         ExpressionKit
         GIT_REPOSITORY https://github.com/Cloudage/ExpressionKit
-        GIT_TAG        v0.0.2
+        GIT_TAG        v0.0.4
         GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(ExpressionKit)
